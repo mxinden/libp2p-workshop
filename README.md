@@ -38,6 +38,12 @@ https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-
 
 ## Iteration 1
 
+In case you are still on branch `main` switch over to branch `iteration-1`.
+
+```
+$ git checkout iteration-1
+```
+
 In this iteration, we will have our node implementation connect to a bootstrap
 node. More particularly we will connect to the node below:
 
