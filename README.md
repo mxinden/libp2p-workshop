@@ -39,4 +39,19 @@ https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md).
 ## Iteration 1
 
 In this iteration, we will have our node implementation connect to a bootstrap
-node.
+node. More particularly we will connect to the node below:
+
+```
+TODO: Add address here
+```
+
+TODO: Reference Multiadddr
+
+To connect, run the command below:
+
+```
+$ cargo run -- --bootstrap-node TODO
+
+Local peer id: PeerId("12D3KooWQ7XeB9dgLZniYZ7nypcHYwEDyGe9eRbkDDmhB9upurMc")
+Connected to TODO.
+```
