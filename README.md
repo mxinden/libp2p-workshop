@@ -15,9 +15,9 @@ give hands-on experience on how to build peer-to-peer vs. client-to-server.
 
    https://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
-2. Install Rust.
+2. Install Rust Programming Language.
 
-   https://www.rust-lang.org/learn/get-started
+   https://www.rust-lang.org/tools/install
 
 3. Install Protoc, the Protobuf compiler.
 
