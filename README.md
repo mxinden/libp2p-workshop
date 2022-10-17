@@ -40,7 +40,11 @@ give hands-on experience on how to build peer-to-peer vs. client-to-server.
    Hello, world!
    ```
 
-Done? Great. Let's move on then to the [first iteration](
+Done? Great. You are all set for the workshop.
+
+## Workshop
+
+Let's start with the [first iteration](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-1).
 
 ## Iteration 1
