@@ -23,7 +23,14 @@ give hands-on experience on how to build peer-to-peer vs. client-to-server.
 
    https://github.com/protocolbuffers/protobuf#protocol-compiler-installation
 
-4. Make sure you can compile the _hello world_ program in this repository on this branch.
+4. Clone this repository.
+
+   ```
+   $ git clone https://github.com/mxinden/libp2p-workshop.git
+   ```
+
+5. Make sure you can compile the _hello world_ program in this repository on the
+   `main` branch.
 
    ```
    $ cargo run
