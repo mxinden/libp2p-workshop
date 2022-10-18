@@ -5,8 +5,9 @@ use futures::{prelude::*, select, stream::StreamExt};
 use libp2p::{
     core, dns,
     gossipsub::{self, GossipsubEvent, GossipsubMessage},
-    identify, identity, noise,
-    relay::v2::relay,
+    identify, identity,
+    multiaddr::Protocol,
+    noise, relay,
     request_response::{self, RequestResponseEvent, RequestResponseMessage},
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
@@ -38,6 +39,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // - Port 0 uses a port assigned by the OS.
     let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     network.listen_on(local_address)?;
+
+    network.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
 
     // Dial the bootstrap node.
     network.dial(opts.bootstrap_node)?;
@@ -243,28 +246,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     println!("Local peer id: {:?}", local_peer_id);
 
     // ----------------------------------------
-    // # Create our transport layer
-    // ----------------------------------------
-
-    // Use TCP as transport protocol.
-    let tcp_transport = tcp::TcpTransport::new(tcp::GenTcpConfig::new().nodelay(true));
-
-    // Enable DNS name resolution.
-    let dns_tcp_transport = dns::DnsConfig::system(tcp_transport).await?;
-
-    // Upgrade our transport:
-    //
-    // - Noise security: Authenticates peers and encrypts all traffic
-    // - Yamux multiplexing: Abstracts a single connection into multiple logical streams
-    //   that can be used by different application protocols.
-    let transport = dns_tcp_transport
-        .upgrade(core::upgrade::Version::V1)
-        .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
-        .multiplex(yamux::YamuxConfig::default())
-        .timeout(std::time::Duration::from_secs(20))
-        .boxed();
-
-    // ----------------------------------------
     // # Define our application layer protocols
     // ----------------------------------------
 
@@ -300,14 +281,15 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
             .expect("Valid config");
 
         gossipsub::Gossipsub::new(
-            gossipsub::MessageAuthenticity::Signed(local_key),
+            gossipsub::MessageAuthenticity::Signed(local_key.clone()),
             gossipsub_config,
         )
         .unwrap()
     };
 
     // Use a relay peer if we can not connect to another peer directly.
-    let relay_protocol = relay::Relay::new(local_peer_id, relay::Config::default());
+    let (relay_transport, relay_protocol) =
+        relay::v2::client::Client::new_transport_and_behaviour(local_peer_id);
 
     // Enable direct 1:1 request-response messages.
     let direct_message_protocol = request_response::RequestResponse::new(
@@ -315,6 +297,29 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
         iter::once((codec::Protocol, request_response::ProtocolSupport::Full)),
         request_response::RequestResponseConfig::default(),
     );
+
+    // ----------------------------------------
+    // # Create our transport layer
+    // ----------------------------------------
+
+    // Use TCP as transport protocol.
+    let tcp_transport = tcp::TcpTransport::new(tcp::GenTcpConfig::new().nodelay(true));
+
+    // Enable DNS name resolution.
+    let dns_tcp_transport = dns::DnsConfig::system(tcp_transport).await?;
+
+    // Upgrade our transport:
+    //
+    // - Noise security: Authenticates peers and encrypts all traffic
+    // - Yamux multiplexing: Abstracts a single connection into multiple logical streams
+    //   that can be used by different application protocols.
+    let transport = relay_transport
+        .or_transport(dns_tcp_transport)
+        .upgrade(core::upgrade::Version::V1)
+        .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
+        .multiplex(yamux::YamuxConfig::default())
+        .timeout(std::time::Duration::from_secs(20))
+        .boxed();
 
     Ok(Swarm::new(
         transport,
@@ -332,7 +337,7 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
 struct Behaviour {
     identify: identify::Behaviour,
     gossipsub: gossipsub::Gossipsub,
-    relay: relay::Relay,
+    relay: relay::v2::client::Client,
     request_response: request_response::RequestResponse<codec::Codec>,
 }
 
