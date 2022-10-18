@@ -49,6 +49,8 @@ https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-
 
 ## Iteration 1
 
+TODO: Add ping, keep alive
+
 In case you are still on branch `main` switch over to branch `iteration-1`.
 
 ```
@@ -72,3 +74,7 @@ $ cargo run -- --bootstrap-node TODO
 Local peer id: PeerId("12D3KooWQ7XeB9dgLZniYZ7nypcHYwEDyGe9eRbkDDmhB9upurMc")
 Connected to TODO.
 ```
+
+## Iteration 2
+
+TODO: Identify, remove ping
