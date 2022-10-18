@@ -21,6 +21,11 @@ use std::{
     time::Duration,
 };
 
+#[allow(clippy::derive_partial_eq_without_eq)]
+mod message_proto {
+    include!(concat!(env!("OUT_DIR"), "/workshop.pb.rs"));
+}
+
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();

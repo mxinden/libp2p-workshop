@@ -14,3 +14,8 @@ futures = "0.3"
 # TODO: Consider reducing feature set.
 libp2p = { version = "0.49.0", features = ["full"] }
 log = "0.4"
+prost = "0.11"
+
+[build-dependencies]
+prost-build = "0.11"
+
