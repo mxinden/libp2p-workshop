@@ -47,7 +47,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 println!("Agent version {}", agent_version);
                 break;
             }
-            _ => {}
+            e => {
+                log::debug!("{:?}", e)
+            }
         }
     }
 
