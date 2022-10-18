@@ -78,3 +78,11 @@ Connected to TODO.
 ## Iteration 2
 
 TODO: Identify, remove ping
+
+## Iteration 3
+
+TODO: Gossipsub
+
+## Iteration 4
+
+TODO: Gossip addresses and try to connect to them
