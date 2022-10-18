@@ -75,14 +75,41 @@ Local peer id: PeerId("12D3KooWQ7XeB9dgLZniYZ7nypcHYwEDyGe9eRbkDDmhB9upurMc")
 Connected to TODO.
 ```
 
+Let's move on to [iteration two](
+https://github.com/mxinden/libp2p-workshop/blob/iteration-2/README.md#iteration-2).
+
 ## Iteration 2
+
+In case you are still on branch `iteration-1` switch over to branch `iteration-2`.
+
+```
+$ git checkout iteration-2
+```
 
 TODO: Identify, remove ping
 
+Let's move on to [iteration three](
+https://github.com/mxinden/libp2p-workshop/blob/iteration-3/README.md#iteration-3).
+
 ## Iteration 3
+
+In case you are still on branch `iteration-2` switch over to branch `iteration-3`.
+
+```
+$ git checkout iteration-3
+```
 
 TODO: Gossipsub
 
+Let's move on to [iteration four](
+https://github.com/mxinden/libp2p-workshop/blob/iteration-4/README.md#iteration-4).
+
 ## Iteration 4
+
+In case you are still on branch `iteration-3` switch over to branch `iteration-4`.
+
+```
+$ git checkout iteration-4
+```
 
 TODO: Gossip addresses and try to connect to them
