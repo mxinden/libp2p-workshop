@@ -9,6 +9,21 @@ application will allow anyone with internet access across the globe to
 communicate without depending on any central infrastructure. The workshop will
 give hands-on experience on how to build peer-to-peer vs. client-to-server.
 
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Before the workshop](#before-the-workshop)
+- [Workshop](#workshop)
+- [Iteration 1](#iteration-1)
+- [Iteration 2](#iteration-2)
+- [Iteration 3](#iteration-3)
+- [Iteration 4](#iteration-4)
+- [Additional Resources](#additional-resources)
+    - [Libp2p](#libp2p)
+    - [Rust Programming Language](#rust-programming-language)
+
+<!-- markdown-toc end -->
+
 ## Before the workshop
 
 1. Install git.
@@ -21,18 +36,20 @@ give hands-on experience on how to build peer-to-peer vs. client-to-server.
 
 3. Install Protoc, the Protobuf compiler.
 
-   https://github.com/protocolbuffers/protobuf#protocol-compiler-installation
+   - https://github.com/protocolbuffers/protobuf#protocol-compiler-installation
+   - Linux / MacOS: <https://grpc.io/docs/protoc-installation/>
+   - Windows: <https://www.geeksforgeeks.org/how-to-install-protocol-buffers-on-windows/>
 
 4. Clone this repository.
 
-   ```
+   ```sh
    $ git clone https://github.com/mxinden/libp2p-workshop.git
    ```
 
 5. Make sure you can compile the _hello world_ program in this repository on the
    `main` branch.
 
-   ```
+   ```sh
    $ cargo run
 
    Finished dev [unoptimized + debuginfo] target(s) in 0.04s
@@ -47,6 +64,7 @@ Done? Great. You are all set for the workshop.
 Let's start with the [first iteration](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-1).
 
+<<<<<<< HEAD
 ## Iteration 1
 
 In case you are still on branch `main` switch over to branch `iteration-1`.
@@ -144,3 +162,23 @@ $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6
 TODO Update output
 ```
 
+## Additional Resources
+
+Below are a couple of resources for those interested in reading more about
+the stack used in this workshop.
+**No knowledge is required in order to participate in the workshop!**
+
+### Libp2p
+
+Libp2p is a modular network stack that enables the development of peer-to-peer network applications.
+
+- Introduction to Libp2p: <https://docs.libp2p.io/introduction/>
+- Tutorial for getting started with rust-libp2p: <https://github.com/libp2p/rust-libp2p/blob/master/src/tutorials/ping.rs>
+- Libp2p Specs: <https://github.com/libp2p/specs>
+
+### Rust Programming Language
+
+In this workshop we are using the Rust implementation of the libp2p networking stack.
+
+- Rust Getting started: <https://www.rust-lang.org/learn/get-started>
+- The Rust Book: <https://doc.rust-lang.org/stable/book/>
