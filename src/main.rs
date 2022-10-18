@@ -4,6 +4,7 @@ use async_std::io;
 use asynchronous_codec::{Decoder, Encoder};
 use clap::Parser;
 use futures::{prelude::*, select, stream::StreamExt};
+use futures_timer::Delay;
 use libp2p::{
     core, dns,
     gossipsub::{self, GossipsubEvent, GossipsubMessage},
@@ -15,9 +16,8 @@ use libp2p::{
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     error::Error,
-    hash::{Hash, Hasher},
     io::Cursor,
     iter,
     os::unix::prelude::FileExt,
@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     let mut file_list = HashMap::new();
-    let mut providing = HashMap::new();
+    let mut providing = HashMap::<String, String>::new();
     let mut pending_requests = HashMap::new();
 
     // ----------------------------------------
@@ -79,8 +79,37 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
+    let mut delay = Delay::new(Duration::from_secs(5)).fuse();
+
     loop {
         select! {
+            _ = delay => {
+                for filename in providing.keys() {
+                    let listen_addrs = network.listeners().map(|a| a.to_vec()).collect();
+
+                    let announcement = message_proto::FileAnnouncement {
+                        filename: filename.clone(),
+                        addrs: listen_addrs,
+                    };
+
+                    let mut encoded_msg = bytes::BytesMut::new();
+                    announcement.encode(&mut encoded_msg)?;
+                    let mut dst = bytes::BytesMut::new();
+                    unsigned_varint::codec::UviBytes::default().encode(encoded_msg.freeze(), &mut dst)?;
+
+                    match network
+                        .behaviour_mut()
+                        .gossipsub
+                        .publish(provider_topic.clone(), dst)
+                    {
+                        Ok(_) => {
+                            log::info!("Published file {:?}", filename);
+                        },
+                        Err(e) => log::warn!("Publish error: {:?}", e),
+                    }
+                }
+                delay = Delay::new(Duration::from_secs(5)).fuse();
+            },
 
             // Parse lines from Stdin
             line = stdin.select_next_some() => {
@@ -90,7 +119,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let (prefix, arg) = match line.split_once(' ') {
                     Some(split) => split,
                     None => {
-                        println!("Invalid command format");
+                        log::info!("Invalid command format");
                         continue;
                     }
                 };
@@ -101,53 +130,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             .gossipsub
                             .publish(chat_topic.clone(), arg.as_bytes())
                         {
-                            println!("Publish error: {:?}", e);
+                            log::info!("Publish error: {:?}", e);
                         }
                     }
                     "GET" => {
-                        let provider_id = match file_list.get(&arg.as_bytes().to_vec()) {
+                        let provider_id = match file_list.get(&arg.to_string()) {
                             Some(provider_id) => provider_id,
                             None => {
-                                println!("No provider known for: {:?}", arg);
+                                log::info!("No provider known for: {:?}", arg);
                                 continue;
                             }
                         };
                         let request_id = network.behaviour_mut().request_response.send_request(provider_id, arg.as_bytes().to_vec());
                         pending_requests.insert(request_id, arg.to_string());
-                        println!("Requested file for: {:?}", arg);
+                        log::info!("Requested file for: {:?}", arg);
                     }
                     "PUT" => {
                         if let Err(err) = std::fs::File::open(&arg) {
-                            println!("Can not access file {:?}: {:?}", arg, err);
+                            log::info!("Can not access file {:?}: {:?}", arg, err);
                             continue;
                         }
-                        let file_name = arg.split('/').last().unwrap().to_string();
-
-                        let announcement = message_proto::FileAnnouncement {
-                            filename: file_name,
-                            addrs: todo!(),
-                        };
-                        let mut encoded_msg = bytes::BytesMut::new();
-                        announcement.encode(&mut encoded_msg)
-                            .expect("BytesMut to have sufficient capacity.");
-                        let mut dst = bytes::BytesMut::new();
-                        unsigned_varint::codec::UviBytes::default()
-                            .encode(encoded_msg.freeze(), &mut dst)?;
-
-                        match network
-                            .behaviour_mut()
-                            .gossipsub
-                            .publish(provider_topic.clone(), dst)
-                        {
-                            Ok(_) => {
-                                println!("Published file {:?}", file_name);
-                                providing.insert(file_name.to_string(), arg.to_string());
-                            },
-                            Err(e) => println!("Publish error: {:?}", e),
-                        }
+                        let filename = arg.split('/').last().unwrap().to_string();
+                        providing.insert(filename, arg.to_string());
                     }
                     other => {
-                        println!("Invalid prefix: Expected MSG|GET|PUT, found {}", other)
+                        log::info!("Invalid prefix: Expected MSG|GET|PUT, found {}", other)
                     }
                 }
             },
@@ -160,20 +167,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 // Case 1: We are now actively listening on an address
                 SwarmEvent::NewListenAddr { address, .. } => {
-                    println!("Listening on {}.", address);
+                    log::info!("Listening on {}.", address);
 
                     if let Err(e) = network
                         .behaviour_mut()
                         .gossipsub
                         .publish(addrs_topic.clone(), address.to_vec())
                     {
-                        println!("Publish error: {:?}", e);
+                        log::debug!("Publish error: {:?}", e);
                     }
                 }
 
                 // Case 2: A connection to another peer was established
                 SwarmEvent::ConnectionEstablished { endpoint, .. } => {
-                    println!("Connected to {}.", endpoint.get_remote_address());
+                    log::info!("Connected to {}.", endpoint.get_remote_address());
+                }
+
+                // Case 2: A connection to another peer was established
+                SwarmEvent::ConnectionClosed { endpoint, .. } => {
+                    log::debug!("Connection closed to {}.", endpoint.get_remote_address());
                 }
 
                 // Case 3: A remote send us their identify info with the identify protocol.
@@ -181,33 +193,45 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     peer_id: _,
                     info: identify::Info { agent_version, .. },
                 })) => {
-                    println!("Agent version {}", agent_version);
+                    log::info!("Agent version {}", agent_version);
                 }
 
-                // CWe received a message from another peer.
+                // Case 4: We received a message from another peer.
                 SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(GossipsubEvent::Message {
                     message_id,
                     message: GossipsubMessage { topic, data, source, ..},
                     ..
                 })) => {
+                    let source = source.unwrap();
                     if topic == chat_topic.hash() {
-                        println!(
+                        log::info!(
                             "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
                             message_id,
-                            source.unwrap(),
+                            source,
                             String::from_utf8_lossy(&data),
                         );
                     } else if topic == provider_topic.hash(){
                         let mut b: bytes::BytesMut = data.as_slice().into();
                         let mut uvi: unsigned_varint::codec::UviBytes  = unsigned_varint::codec::UviBytes::default();
-                        let file_announcement = uvi.decode(&mut b)?
-                            .map(|msg| message_proto::FileAnnouncement::decode(Cursor::new(msg)));
-
-                        file_list.insert(data, source.unwrap());
-
+                        let file_announcement =match
+                         uvi.decode(&mut b)?
+                            .and_then(|msg| message_proto::FileAnnouncement::decode(Cursor::new(msg)).ok()) {
+                                Some(decoded) => decoded,
+                                None => {
+                                    log::debug!("Received invalid message: {:?}", data);
+                                    continue;
+                                }
+                            };
+                        for addr in file_announcement.addrs {
+                            network.behaviour_mut().request_response.add_address(&source, Multiaddr::try_from(addr)?);
+                        }
+                        if let Entry::Vacant(e)= file_list.entry(file_announcement.filename.clone()) {
+                            e.insert(source);
+                            log::info!("{:?} is now providing file {:?}", source,file_announcement.filename );
+                        }
                     } else if topic == addrs_topic.hash() {
                         let addr = Multiaddr::try_from(data).unwrap();
-                        network.behaviour_mut().request_response.add_address(&source.unwrap(), addr)
+                        network.behaviour_mut().request_response.add_address(&source, addr)
                     }
                 }
 
@@ -221,7 +245,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         .and_then(|file_path|std::fs::read(&file_path).ok()) {
                             Some(path) => path,
                             None => {
-                                println!("Got request for invalid file path: {:?}", request);
+                                log::info!("Got request for invalid file path: {:?}", request);
                                 continue;
                             }
                         };
@@ -235,20 +259,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         let file = match std::fs::File::create(file_name.clone()) {
                             Ok(file) => file,
                             Err(err) => {
-                                println!("Error creating file at {}: {:?}", file_name, err);
+                                log::warn!("Error creating file at {}: {:?}", file_name, err);
                                 continue
                             }
                         };
                         match file.write_all_at(&response, 0) {
-                            Ok(()) => println!("Downloaded new file: {:?}", file_name),
+                            Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
                             Err(err) => {
-                                println!("Error write to file at {}: {:?}", file_name, err)
+                                log::warn!("Error write to file at {}: {:?}", file_name, err)
                             }
                         }
                     }
                 },
 
-                _ => {}
+                event => log::debug!("{:?}", event),
             }
         }
     }
@@ -268,7 +292,7 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     // The PeerId servers as a unique identifier in the network.
     let local_peer_id = PeerId::from(local_public_key.clone());
 
-    println!("Local peer id: {:?}", local_peer_id);
+    log::info!("Local peer id: {:?}", local_peer_id);
 
     // ----------------------------------------
     // # Define our application layer protocols
@@ -289,19 +313,10 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     //
     // Publish-subscribe message protocol.
     let gossipsub_protocol = {
-        // To content-address message, we can take the hash of message and use it as an ID.
-        let message_id_fn = |message: &gossipsub::GossipsubMessage| {
-            let mut s = std::collections::hash_map::DefaultHasher::new();
-            message.data.hash(&mut s);
-            gossipsub::MessageId::from(s.finish().to_string())
-        };
-
         // Set a custom gossipsub
         let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
             .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
             .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
-            .message_id_fn(message_id_fn) // content-address messages. No two messages of the
-            // same content will be propagated.
             .build()
             .expect("Valid config");
 
