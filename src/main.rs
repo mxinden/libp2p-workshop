@@ -1,26 +1,229 @@
+mod codec;
 use async_std::io;
 use clap::Parser;
 use futures::{prelude::*, select, stream::StreamExt};
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::Boxed},
-    dns,
-    gossipsub::{self, GossipsubEvent},
+    core, dns,
+    gossipsub::{self, GossipsubEvent, GossipsubMessage},
     identify, identity, noise,
     relay::v2::relay,
+    request_response::{self, RequestResponseEvent, RequestResponseMessage},
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use std::{
+    collections::HashMap,
     error::Error,
     hash::{Hash, Hasher},
+    iter,
+    os::unix::prelude::FileExt,
     time::Duration,
 };
 
-#[derive(Debug, Parser)]
-#[clap(name = "libp2p-workshop-node")]
-struct Opts {
-    #[clap(long)]
-    bootstrap_node: Multiaddr,
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
+    let opts = Opts::parse();
+
+    // Configure a new network.
+    let mut network = create_network().await?;
+
+    // ----------------------------------------
+    // # Joining the network
+    // ----------------------------------------
+
+    // Listen on a new address so that other peers can dial us.
+    //
+    // - IP 0.0.0.0 lets us listen on all network interfaces.
+    // - Port 0 uses a port assigned by the OS.
+    let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
+    network.listen_on(local_address)?;
+
+    // Dial the bootstrap node.
+    network.dial(opts.bootstrap_node)?;
+
+    // ----------------------------------------
+    // Send and receive messages in the network.
+    // ----------------------------------------
+    let chat_topic = gossipsub::IdentTopic::new("chat");
+    let addrs_topic = gossipsub::IdentTopic::new("addresses");
+    let provider_topic = gossipsub::IdentTopic::new("files");
+
+    network.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
+    network.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
+    network
+        .behaviour_mut()
+        .gossipsub
+        .subscribe(&provider_topic)?;
+
+    // Read full lines from stdin
+    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+
+    let mut file_list = HashMap::new();
+    let mut providing = HashMap::new();
+    let mut pending_requests = HashMap::new();
+
+    // ----------------------------------------
+    // Run the network until we established a connection to the bootstrap node
+    // and exchanged identify into
+    // ----------------------------------------
+
+    loop {
+        select! {
+
+            // Parse lines from Stdin
+            line = stdin.select_next_some() => {
+
+                let line = line.expect("Stdin not to close");
+
+                let (prefix, arg) = match line.split_once(' ') {
+                    Some(split) => split,
+                    None => {
+                        println!("Invalid command format");
+                        continue;
+                    }
+                };
+                match prefix {
+                    "MSG" => {
+                        if let Err(e) = network
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(chat_topic.clone(), arg.as_bytes())
+                        {
+                            println!("Publish error: {:?}", e);
+                        }
+                    }
+                    "GET" => {
+                        let provider_id = match file_list.get(&arg.as_bytes().to_vec()) {
+                            Some(provider_id) => provider_id,
+                            None => {
+                                println!("No provider known for: {:?}", arg);
+                                continue;
+                            }
+                        };
+                        let request_id = network.behaviour_mut().request_response.send_request(provider_id, arg.as_bytes().to_vec());
+                        pending_requests.insert(request_id, arg.to_string());
+                        println!("Requested file for: {:?}", arg);
+                    }
+                    "PUT" => {
+                        if let Err(err) = std::fs::File::open(&arg) {
+                            println!("Can not access file {:?}: {:?}", arg, err);
+                            continue;
+                        }
+                        let file_name = arg.split('/').last().unwrap();
+                        match network
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(provider_topic.clone(), file_name.as_bytes())
+                        {
+                            Ok(_) => {
+                                println!("Published file {:?}", file_name);
+                                providing.insert(file_name.to_string(), arg.to_string());
+                            },
+                            Err(e) => println!("Publish error: {:?}", e),
+                        }
+                    }
+                    other => {
+                        println!("Invalid prefix: Expected MSG|GET|PUT, found {}", other)
+                    }
+                }
+            },
+
+
+            // Wait for an event happening on the network.
+            // The `match` statement allows to match on the type
+            // of event an handle each event differently.
+            event = network.select_next_some() => match event {
+
+                // Case 1: We are now actively listening on an address
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    println!("Listening on {}.", address);
+
+                    if let Err(e) = network
+                        .behaviour_mut()
+                        .gossipsub
+                        .publish(addrs_topic.clone(), address.to_vec())
+                    {
+                        println!("Publish error: {:?}", e);
+                    }
+                }
+
+                // Case 2: A connection to another peer was established
+                SwarmEvent::ConnectionEstablished { endpoint, .. } => {
+                    println!("Connected to {}.", endpoint.get_remote_address());
+                }
+
+                // Case 3: A remote send us their identify info with the identify protocol.
+                SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                    peer_id: _,
+                    info: identify::Info { agent_version, .. },
+                })) => {
+                    println!("Agent version {}", agent_version);
+                }
+
+                // CWe received a message from another peer.
+                SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(GossipsubEvent::Message {
+                    message_id,
+                    message: GossipsubMessage { topic, data, source, ..},
+                    ..
+                })) => {
+                    if topic == chat_topic.hash() {
+                        println!(
+                            "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
+                            message_id,
+                            source.unwrap(),
+                            String::from_utf8_lossy(&data),
+                        );
+                    } else if topic == provider_topic.hash(){
+                        file_list.insert(data, source.unwrap());
+
+                    } else if topic == addrs_topic.hash() {
+                        let addr = Multiaddr::try_from(data).unwrap();
+                        network.behaviour_mut().request_response.add_address(&source.unwrap(), addr)
+                    }
+                }
+
+                SwarmEvent::Behaviour(BehaviourEvent::RequestResponse(
+                    RequestResponseEvent::Message { message, .. },
+                )) => match message {
+                    RequestResponseMessage::Request {
+                        request, channel, ..
+                    } => {
+                        let file_content = match String::from_utf8(request.clone()).ok().and_then(|file_name| providing.get(&file_name))
+                        .and_then(|file_path|std::fs::read(&file_path).ok()) {
+                            Some(path) => path,
+                            None => {
+                                println!("Got request for invalid file path: {:?}", request);
+                                continue;
+                            }
+                        };
+                        let _ = network.behaviour_mut().request_response.send_response(channel, file_content);
+                    }
+                    RequestResponseMessage::Response {
+                        request_id,
+                        response,
+                    } => {
+                        let file_name = pending_requests.remove(&request_id).unwrap();
+                        let file = match std::fs::File::create(file_name.clone()) {
+                            Ok(file) => file,
+                            Err(err) => {
+                                println!("Error creating file at {}: {:?}", file_name, err);
+                                continue
+                            }
+                        };
+                        match file.write_all_at(&response, 0) {
+                            Ok(()) => println!("Downloaded new file: {:?}", file_name),
+                            Err(err) => {
+                                println!("Error write to file at {}: {:?}", file_name, err)
+                            }
+                        }
+                    }
+                },
+
+                _ => {}
+            }
+        }
+    }
 }
 
 // Create a new network node.
@@ -103,121 +306,39 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
         .unwrap()
     };
 
+    // Use a relay peer if we can not connect to another peer directly.
+    let relay_protocol = relay::Relay::new(local_peer_id, relay::Config::default());
+
+    // Enable direct 1:1 request-response messages.
+    let direct_message_protocol = request_response::RequestResponse::new(
+        codec::Codec,
+        iter::once((codec::Protocol, request_response::ProtocolSupport::Full)),
+        request_response::RequestResponseConfig::default(),
+    );
+
     Ok(Swarm::new(
         transport,
         Behaviour {
             identify: identify_protocol,
             gossipsub: gossipsub_protocol,
+            relay: relay_protocol,
+            request_response: direct_message_protocol,
         },
         local_peer_id,
     ))
-}
-
-#[async_std::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
-    let opts = Opts::parse();
-
-    // Configure a new network.
-    let mut network = create_network().await?;
-
-    // ----------------------------------------
-    // # Joining the network
-    // ----------------------------------------
-
-    // Listen on a new address so that other peers can dial us.
-    //
-    // - IP 0.0.0.0 lets us listen on all network interfaces.
-    // - Port 0 uses a port assigned by the OS.
-    let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
-    network.listen_on(local_address)?;
-
-    // Dial the bootstrap node.
-    network.dial(opts.bootstrap_node)?;
-
-    // ----------------------------------------
-    // Run the network until we established a connection to the bootstrap node
-    // and exchanged identify into
-    // ----------------------------------------
-
-    loop {
-        // Wait for an event happening on the network.
-        // The `match` statement allows to match on the type
-        // of event an handle each event differently.
-        match network.next().await.unwrap() {
-            // Case 1: We are now actively listening on an address
-            SwarmEvent::NewListenAddr { address, .. } => {
-                println!("Listening on {}.", address);
-            }
-
-            // Case 2: A connection to another peer was established
-            SwarmEvent::ConnectionEstablished { endpoint, .. } => {
-                println!("Connected to {}.", endpoint.get_remote_address());
-            }
-
-            // Case 3: A remote send us their identify info with the identify protocol.
-            SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
-                peer_id: _,
-                info: identify::Info { agent_version, .. },
-            })) => {
-                println!("Agent version {}", agent_version);
-                break;
-            }
-
-            // Any other event happened
-            e => {
-                log::debug!("{:?}", e)
-            }
-        }
-    }
-
-    // ----------------------------------------
-    // Send and receive messages in the network.
-    // ----------------------------------------
-    let topic = gossipsub::IdentTopic::new("chat");
-
-    network.behaviour_mut().gossipsub.subscribe(&topic)?;
-
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
-    loop {
-        select! {
-
-            // Parse lines from Stdin
-            line = stdin.select_next_some() => {
-                if let Err(e) = network
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(topic.clone(), line.expect("Stdin not to close").as_bytes())
-                {
-                    println!("Publish error: {:?}", e);
-                }
-            },
-
-            // Handle events happening in the network.
-            event = network.select_next_some() => match event {
-
-                // CWe received a message from another peer.
-                SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(GossipsubEvent::Message {
-                    propagation_source: peer_id,
-                    message_id: id,
-                    message,
-                })) => println!(
-                    "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
-                    id,
-                    peer_id,
-                    String::from_utf8_lossy(&message.data),
-                ),
-                _ => {}
-            }
-        }
-    }
-
-    Ok(())
 }
 
 #[derive(NetworkBehaviour)]
 struct Behaviour {
     identify: identify::Behaviour,
     gossipsub: gossipsub::Gossipsub,
+    relay: relay::Relay,
+    request_response: request_response::RequestResponse<codec::Codec>,
+}
+
+#[derive(Debug, Parser)]
+#[clap(name = "libp2p-workshop-node")]
+struct Opts {
+    #[clap(long)]
+    bootstrap_node: Multiaddr,
 }
