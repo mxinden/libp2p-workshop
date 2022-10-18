@@ -1,6 +1,6 @@
 use clap::Parser;
 use futures::stream::StreamExt;
-use libp2p::{identity, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
+use libp2p::{identity, ping, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
 use std::error::Error;
 
 #[derive(Debug, Parser)]
@@ -23,7 +23,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Set up an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
     let transport = libp2p::development_transport(local_key).await?;
 
-    let mut swarm = Swarm::new(transport, libp2p::swarm::dummy::Behaviour, local_peer_id);
+    let mut swarm = Swarm::new(
+        transport,
+        ping::Behaviour::new(ping::Config::default().with_keep_alive(true)),
+        local_peer_id,
+    );
 
     swarm.dial(opts.bootstrap_node)?;
 
@@ -31,11 +35,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         match swarm.next().await.unwrap() {
             SwarmEvent::ConnectionEstablished { endpoint, .. } => {
                 println!("Connected to {}.", endpoint.get_remote_address());
-                break;
             }
-            _ => {}
+            SwarmEvent::Behaviour(ping::Event {
+                peer,
+                result: Ok(ping::Success::Ping { rtt }),
+            }) => {
+                println!("Received Pong from {}. RTT {:?}.", peer, rtt);
+            }
+            e => {
+                log::debug!("{:?}", e)
+            }
         }
     }
-
-    Ok(())
 }
