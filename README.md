@@ -64,7 +64,6 @@ Done? Great. You are all set for the workshop.
 Let's start with the [first iteration](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-1).
 
-<<<<<<< HEAD
 ## Iteration 1
 
 In case you are still on branch `main` switch over to branch `iteration-1`.
