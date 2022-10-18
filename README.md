@@ -72,3 +72,6 @@ $ cargo run -- --bootstrap-node TODO
 Local peer id: PeerId("12D3KooWQ7XeB9dgLZniYZ7nypcHYwEDyGe9eRbkDDmhB9upurMc")
 Connected to TODO.
 ```
+
+Let's move on to [iteration two](
+https://github.com/mxinden/libp2p-workshop/blob/iteration-2/README.md#iteration-2).
