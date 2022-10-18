@@ -146,11 +146,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         log::info!("Requested file for: {:?}", arg);
                     }
                     "PUT" => {
-                        if let Err(err) = std::fs::File::open(&arg) {
+                        let path = std::path::Path::new(arg);
+                        if let Err(err) = std::fs::File::open(&path) {
                             log::info!("Can not access file {:?}: {:?}", arg, err);
                             continue;
                         }
-                        let filename = arg.split('/').last().unwrap().to_string();
+                        let filename = path.file_name().and_then(|s| s.to_str()).map(|s| s.to_owned()).unwrap();
                         providing.insert(filename, arg.to_string());
                     }
                     other => {
