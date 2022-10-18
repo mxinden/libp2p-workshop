@@ -331,11 +331,14 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     let (relay_transport, relay_protocol) =
         relay::v2::client::Client::new_transport_and_behaviour(local_peer_id);
 
+    let mut config = request_response::RequestResponseConfig::default();
+    config.set_connection_keep_alive(Duration::from_secs(30));
+
     // Enable direct 1:1 request-response messages.
     let direct_message_protocol = request_response::RequestResponse::new(
         codec::Codec,
         iter::once((codec::Protocol, request_response::ProtocolSupport::Full)),
-        request_response::RequestResponseConfig::default(),
+        config,
     );
 
     // ----------------------------------------
