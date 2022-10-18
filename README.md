@@ -103,13 +103,3 @@ TODO: Gossipsub
 
 Let's move on to [iteration four](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-4/README.md#iteration-4).
-
-## Iteration 4
-
-In case you are still on branch `iteration-3` switch over to branch `iteration-4`.
-
-```
-$ git checkout iteration-4
-```
-
-TODO: Gossip addresses and try to connect to them
