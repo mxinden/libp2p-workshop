@@ -1,5 +1,7 @@
+use prost::Message;
 mod codec;
 use async_std::io;
+use asynchronous_codec::{Decoder, Encoder};
 use clap::Parser;
 use futures::{prelude::*, select, stream::StreamExt};
 use libp2p::{
@@ -16,6 +18,7 @@ use std::{
     collections::HashMap,
     error::Error,
     hash::{Hash, Hasher},
+    io::Cursor,
     iter,
     os::unix::prelude::FileExt,
     time::Duration,
@@ -118,11 +121,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             println!("Can not access file {:?}: {:?}", arg, err);
                             continue;
                         }
-                        let file_name = arg.split('/').last().unwrap();
+                        let file_name = arg.split('/').last().unwrap().to_string();
+
+                        let announcement = message_proto::FileAnnouncement {
+                            filename: file_name,
+                            addrs: todo!(),
+                        };
+                        let mut encoded_msg = bytes::BytesMut::new();
+                        announcement.encode(&mut encoded_msg)
+                            .expect("BytesMut to have sufficient capacity.");
+                        let mut dst = bytes::BytesMut::new();
+                        unsigned_varint::codec::UviBytes::default()
+                            .encode(encoded_msg.freeze(), &mut dst)?;
+
                         match network
                             .behaviour_mut()
                             .gossipsub
-                            .publish(provider_topic.clone(), file_name.as_bytes())
+                            .publish(provider_topic.clone(), dst)
                         {
                             Ok(_) => {
                                 println!("Published file {:?}", file_name);
@@ -183,6 +198,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             String::from_utf8_lossy(&data),
                         );
                     } else if topic == provider_topic.hash(){
+                        let mut b: bytes::BytesMut = data.as_slice().into();
+                        let mut uvi: unsigned_varint::codec::UviBytes  = unsigned_varint::codec::UviBytes::default();
+                        let file_announcement = uvi.decode(&mut b)?
+                            .map(|msg| message_proto::FileAnnouncement::decode(Cursor::new(msg)));
+
                         file_list.insert(data, source.unwrap());
 
                     } else if topic == addrs_topic.hash() {
