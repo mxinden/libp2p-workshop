@@ -49,8 +49,6 @@ https://github.com/mxinden/libp2p-workshop/blob/iteration-1/README.md#iteration-
 
 ## Iteration 1
 
-TODO: Add ping, keep alive
-
 In case you are still on branch `main` switch over to branch `iteration-1`.
 
 ```
@@ -61,19 +59,26 @@ In this iteration, we will have our node implementation connect to a bootstrap
 node. More particularly we will connect to the node below:
 
 ```
-TODO: Add address here
+/ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 ```
 
-TODO: Reference Multiadddr
+For those interested, the above is a
+[multiaddr](https://github.com/multiformats/multiaddr). Composable and
+future-proof network addresses.
 
-To connect, run the command below:
+To connect to the bootstrap node, run the command below:
 
 ```
-$ cargo run -- --bootstrap-node TODO
+$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
 Local peer id: PeerId("12D3KooWQ7XeB9dgLZniYZ7nypcHYwEDyGe9eRbkDDmhB9upurMc")
 Connected to TODO.
 ```
+
+Given that both nodes run the [Ping
+protocol](https://docs.rs/libp2p-ping/latest/libp2p_ping/), they exchange
+Ping-Pong style messages. You should see the results of these message exchanges
+printed as logs along with the round-trip-time (RTT).
 
 Let's move on to [iteration two](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-2/README.md#iteration-2).
@@ -86,10 +91,20 @@ In case you are still on branch `iteration-1` switch over to branch `iteration-2
 $ git checkout iteration-2
 ```
 
-TODO: Identify, remove ping
+Compared to the previous iteration, the only change in this iteration is that we
+are introducing the [identify
+protocol](https://docs.rs/libp2p/latest/libp2p/identify/index.html). It is a
+simple protocol allowing two nodes to exchange basic information like listening
+addresses and supported protocols.
 
 Let's move on to [iteration three](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-3/README.md#iteration-3).
+
+```
+$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
+
+TODO Update output
+```
 
 ## Iteration 3
 
@@ -99,7 +114,33 @@ In case you are still on branch `iteration-2` switch over to branch `iteration-3
 $ git checkout iteration-3
 ```
 
-TODO: Gossipsub
+We have nearly everything in place to build a chat application. Last missing
+piece is a protocol to exchange messages. For that, we will use the [libp2p
+Gossipsub](https://docs.rs/libp2p/latest/libp2p/gossipsub/index.html) protocol.
+
+Like gossiping among humans, it allows messages to traverse a network of nodes,
+reaching everyone interested.
+
+```
+$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
+
+TODO Update output
+```
 
 Let's move on to [iteration four](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-4/README.md#iteration-4).
+
+## Iteration 4
+
+Our last iteration introduces a file sharing mechanism. Nodes can upload and download
+files to/from peers in the network.
+
+This iteration involves a bit of coding on your end. Take a look at
+[`src/main.rs`](./src/main.rs).
+
+```
+$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
+
+TODO Update output
+```
+
