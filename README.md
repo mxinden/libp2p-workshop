@@ -127,33 +127,6 @@ $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6
 Let's move on to [iteration three](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-3/README.md#iteration-3).
 
-## Iteration 3
-
-In case you are still on branch `iteration-2` switch over to branch `iteration-3`.
-
-```
-$ git checkout iteration-3
-```
-
-We have nearly everything in place to build a chat application. Last missing
-piece is a protocol to exchange messages. For that, we will use the [libp2p
-Gossipsub](https://docs.rs/libp2p/latest/libp2p/gossipsub/index.html) protocol.
-
-Like gossiping among humans, it allows messages to traverse a network of nodes,
-reaching everyone interested.
-
-```
-$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
-
-[2022-10-19T09:19:13Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWSewMEfybQYFtJecWo1jR71b9U2P87mqeFmMwCTLB37qW")
-[2022-10-19T09:19:14Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
-
-```
-
-Let's move on to [iteration four](
-https://github.com/mxinden/libp2p-workshop/blob/iteration-4/README.md#iteration-4).
-
-
 ## Additional Resources
 
 Below are a couple of resources for those interested in reading more about
