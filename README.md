@@ -16,8 +16,6 @@ give hands-on experience on how to build peer-to-peer vs. client-to-server.
 - [Workshop](#workshop)
 - [Iteration 1](#iteration-1)
 - [Iteration 2](#iteration-2)
-- [Iteration 3](#iteration-3)
-- [Iteration 4](#iteration-4)
 - [Additional Resources](#additional-resources)
     - [Libp2p](#libp2p)
     - [Rust Programming Language](#rust-programming-language)
