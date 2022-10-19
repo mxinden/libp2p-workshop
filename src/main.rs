@@ -16,6 +16,7 @@ use libp2p::{
     identify, identity,
     multiaddr::Protocol,
     noise, relay,
+    mdns::{Mdns, MdnsConfig},
     request_response::{self},
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
@@ -50,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // // Dial the bootstrap node.
     // network.dial(opts.bootstrap_node)?;
 
-    swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
+    // swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
 
     // ----------------------------------------
     // Send and receive messages in the network.
@@ -249,6 +250,8 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
         .timeout(std::time::Duration::from_secs(20))
         .boxed();
 
+    let mdns_protocol = Mdns::new(MdnsConfig::default())?;
+
     Ok(Swarm::new(
         transport,
         Behaviour {
@@ -256,6 +259,7 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
             gossipsub: gossipsub_protocol,
             relay: relay_protocol,
             request_response: direct_message_protocol,
+            mdns: mdns_protocol
         },
         local_peer_id,
     ))
@@ -361,11 +365,12 @@ pub struct Behaviour {
     gossipsub: gossipsub::Gossipsub,
     relay: relay::v2::client::Client,
     request_response: request_response::RequestResponse<codec::Codec>,
+    mdns: Mdns
 }
 
 #[derive(Debug, Parser)]
 #[clap(name = "libp2p-workshop-node")]
 struct Opts {
-    #[clap(long)]
-    bootstrap_node: Multiaddr,
+    // #[clap(long)]
+    // bootstrap_node: Multiaddr,
 }

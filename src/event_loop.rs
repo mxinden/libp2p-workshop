@@ -12,7 +12,7 @@ use libp2p::{
     request_response::RequestId,
     request_response::{RequestResponseEvent, RequestResponseMessage},
     swarm::SwarmEvent,
-    Multiaddr, PeerId, Swarm,
+    Multiaddr, PeerId, Swarm, mdns::MdnsEvent,
 };
 use prost::Message;
 use std::{
@@ -265,6 +265,12 @@ impl EventLoop {
                     .event_sender
                     .send(Event::ConnectionEstablished { endpoint })
                     .await;
+            }
+            SwarmEvent::Behaviour(BehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
+                for (peer, addr) in list {
+                    self.swarm.behaviour_mut().request_response.add_address(&peer, addr);
+                }
+
             }
             event => log::debug!("{:?}", event),
         }
