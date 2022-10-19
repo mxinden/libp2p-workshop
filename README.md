@@ -118,7 +118,10 @@ addresses and supported protocols.
 ```
 $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
-TODO Update output
+[2022-10-19T09:40:37Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWKNVqDoWEafi8vSVETbxXBBvWuPZRhfCqsRzXq9gc2UjK")
+[2022-10-19T09:40:38Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+[2022-10-19T09:40:39Z INFO  libp2p_workshop_node] Received Identify Info
+    Peer: 12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K, Agent version github.com/marcopolo/public-ipfs/workshop-server/m/v2@
 ```
 
 Let's move on to [iteration three](
