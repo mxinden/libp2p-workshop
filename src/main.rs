@@ -16,10 +16,10 @@ use libp2p::{
     identify, identity,
     multiaddr::Protocol,
     noise, relay,
-    request_response::{self},
+    request_response,
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
+use std::{error::Error, iter,time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
 
@@ -99,10 +99,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         Ok(()) => {}
                         Err(e) => log::info!("Publish error: {:?}", e),
                     }
-                    "GET" => todo!("Get file content from the network and write it to a local file."),
-                    "PUT" => todo!("Publish file to the network."),
                     other => {
-                        log::info!("Invalid prefix: Expected MSG|GET|PUT, found {}", other)
+                        log::info!("Invalid prefix: Expected 'MSG ', found {}", other)
                     }
                 }
             },
@@ -243,28 +241,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
         },
         local_peer_id,
     ))
-}
-
-/// Write the `data` to `file_name` in the local directory.
-fn write_to_file(file_name: String, data: Vec<u8>) {
-    let file_name = std::path::Path::new(&file_name)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .map(|s| s.to_owned())
-        .unwrap();
-    let file = match std::fs::File::create(file_name.clone()) {
-        Ok(file) => file,
-        Err(err) => {
-            log::warn!("Error creating file at {}: {:?}", file_name, err);
-            return;
-        }
-    };
-    match file.write_all_at(&data, 0) {
-        Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
-        Err(err) => {
-            log::warn!("Error write to file at {}: {:?}", file_name, err)
-        }
-    }
 }
 
 #[derive(Clone)]

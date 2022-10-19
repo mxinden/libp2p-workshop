@@ -141,19 +141,14 @@ reaching everyone interested.
 ```
 $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
-TODO Update output
+[2022-10-19T09:19:13Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWSewMEfybQYFtJecWo1jR71b9U2P87mqeFmMwCTLB37qW")
+[2022-10-19T09:19:14Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+
 ```
 
 Let's move on to [iteration four](
 https://github.com/mxinden/libp2p-workshop/blob/iteration-4/README.md#iteration-4).
 
-## Iteration 4
-
-Our last iteration introduces a file sharing mechanism. Nodes can upload and download
-files to/from peers in the network.
-
-This iteration involves a bit of coding on your end. Take a look at
-[`src/main.rs`](./src/main.rs).
 
 ## Additional Resources
 
