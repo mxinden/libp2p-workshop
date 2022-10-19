@@ -1,4 +1,3 @@
-mod codec;
 mod event_loop;
 
 use clap::Parser;
@@ -15,11 +14,6 @@ use libp2p::{
 use std::error::Error;
 
 use event_loop::{Command, Event, EventLoop};
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-mod message_proto {
-    include!(concat!(env!("OUT_DIR"), "/workshop.pb.rs"));
-}
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
