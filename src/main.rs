@@ -4,6 +4,7 @@ mod event_loop;
 use async_std::io;
 use clap::Parser;
 use env_logger::Env;
+use std::io::Write;
 use futures::{
     channel::{mpsc, oneshot},
     prelude::*,
@@ -19,7 +20,7 @@ use libp2p::{
     request_response::{self},
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
+use std::{error::Error, iter, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
 
@@ -266,14 +267,14 @@ fn write_to_file(file_name: String, data: Vec<u8>) {
         .and_then(|s| s.to_str())
         .map(|s| s.to_owned())
         .unwrap();
-    let file = match std::fs::File::create(file_name.clone()) {
+    let mut file = match std::fs::File::create(file_name.clone()) {
         Ok(file) => file,
         Err(err) => {
             log::warn!("Error creating file at {}: {:?}", file_name, err);
             return;
         }
     };
-    match file.write_all_at(&data, 0) {
+    match file.write_all(&data) {
         Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
         Err(err) => {
             log::warn!("Error write to file at {}: {:?}", file_name, err)
