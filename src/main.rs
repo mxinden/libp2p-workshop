@@ -10,12 +10,8 @@ use futures::{
     stream::StreamExt,
 };
 use libp2p::{
-    core, dns,
-    gossipsub::{self},
-    identify, identity,
-    multiaddr::Protocol,
-    noise, relay, request_response, tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm,
-    Transport,
+    core, dns, gossipsub, identify, identity, noise, relay, request_response, tcp, yamux,
+    Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use std::{error::Error, iter, time::Duration};
 
@@ -45,10 +41,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     swarm.listen_on(local_address)?;
 
-    // // Dial the bootstrap node.
-    // network.dial(opts.bootstrap_node)?;
-
-    swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
+    // Dial the bootstrap node.
+    swarm.dial(opts.bootstrap_node)?;
 
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
@@ -203,18 +197,10 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn new(
-        network: Swarm<Behaviour>,
-    ) -> (Self, mpsc::UnboundedReceiver<Event>) {
+    pub fn new(network: Swarm<Behaviour>) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
-        async_std::task::spawn(
-            EventLoop::new(
-                network,
-                command_rx,
-                event_tx,
-            ).run()
-        );
+        async_std::task::spawn(EventLoop::new(network, command_rx, event_tx).run());
         (Network { sender: command_tx }, event_rx)
     }
 

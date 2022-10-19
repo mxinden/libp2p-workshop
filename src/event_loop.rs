@@ -103,7 +103,7 @@ impl EventLoop {
             pending_requests: HashMap::new(),
             files_topic: dummy_topic.clone(),
             chat_topic: dummy_topic.clone(),
-            address_topic: dummy_topic
+            address_topic: dummy_topic,
         }
     }
 
