@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let opts = Opts::parse();
 
     // Configure a new network.
-    let mut network = create_network().await?;
+    let mut swarm = create_network().await?;
 
     // ----------------------------------------
     // # Joining the network
@@ -46,12 +46,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // - IP 0.0.0.0 lets us listen on all network interfaces.
     // - Port 0 uses a port assigned by the OS.
     let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
-    network.listen_on(local_address)?;
+    swarm.listen_on(local_address)?;
 
     // // Dial the bootstrap node.
     // network.dial(opts.bootstrap_node)?;
 
-    network.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
+    swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
 
     // ----------------------------------------
     // Send and receive messages in the network.
@@ -60,9 +60,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let addrs_topic = gossipsub::IdentTopic::new("addresses");
     let files_topic = gossipsub::IdentTopic::new("files");
 
-    network.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
-    network.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
-    network.behaviour_mut().gossipsub.subscribe(&files_topic)?;
+    swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
+    swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
+    swarm.behaviour_mut().gossipsub.subscribe(&files_topic)?;
 
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ----------------------------------------
 
     let (mut client, mut events_receiver) =
-        Network::new(network, files_topic, chat_topic, addrs_topic);
+        Network::new(swarm, files_topic, chat_topic, addrs_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
@@ -82,13 +82,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let line = line.expect("Stdin not to close");
 
-                let (prefix, arg) = match line.split_once(' ') {
+                let split= match line.split_once(' ') {
                     Some(split) => split,
                     None => {
                         log::info!("Invalid command format");
                         continue;
                     }
                 };
+
+                // The string before the first whitespace
+                let prefix = split.0;
+                // The rest of the string after the whitespace.
+                let arg =  split.1;
+
                 match prefix {
                     "MSG" => match client.send_message(arg.to_string()).await {
                         Ok(()) => {}
@@ -103,19 +109,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 continue
                             }
                         };
-                        let file = match std::fs::File::create(file_name.clone()) {
-                            Ok(file) => file,
-                            Err(err) => {
-                                log::warn!("Error creating file at {}: {:?}", file_name, err);
-                                continue
-                            }
-                        };
-                        match file.write_all_at(&data, 0) {
-                            Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
-                            Err(err) => {
-                                log::warn!("Error write to file at {}: {:?}", file_name, err)
-                            }
-                        }
+                        write_to_file(file_name, data);
                     }
                     "PUT" => {
                         let file_name = arg.to_string();
@@ -268,6 +262,27 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     ))
 }
 
+/// Write the `data` to `file_name` in the local directory.
+fn write_to_file(file_name: String, data: Vec<u8>) {
+    let file_name = std::path::Path::new(&file_name).file_name()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_owned())
+        .unwrap();
+    let file = match std::fs::File::create(file_name.clone()) {
+        Ok(file) => file,
+        Err(err) => {
+            log::warn!("Error creating file at {}: {:?}", file_name, err);
+            return;
+        }
+    };
+    match file.write_all_at(&data, 0) {
+        Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
+        Err(err) => {
+            log::warn!("Error write to file at {}: {:?}", file_name, err)
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Network {
     sender: mpsc::UnboundedSender<Command>,
@@ -296,15 +311,7 @@ impl Network {
         (Network { sender: command_tx }, event_rx)
     }
 
-    /// Listen for incoming connections on the given address.
-    pub async fn start_listening(&mut self, addr: Multiaddr) {
-        self.sender
-            .send(Command::StartListening { addr })
-            .await
-            .unwrap();
-    }
-
-    /// Dial the given peer at the given address.
+    /// Dial the given peer if we know their address.
     pub async fn dial(&mut self, peer_id: PeerId) -> Result<(), String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
@@ -314,17 +321,17 @@ impl Network {
         receiver.await.unwrap()
     }
 
-    /// Advertise the local node as the provider of the given file on the DHT.
-    pub async fn start_providing(&mut self, file_name: String) -> Result<(), String> {
+    /// Start providing a file located at `path`. 
+    pub async fn start_providing(&mut self, path: String) -> Result<(), String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Provide { file_name, sender })
+            .send(Command::Provide { file_name: path, sender })
             .await
             .unwrap();
         receiver.await.unwrap()
     }
 
-    /// Find the providers for the given file on the DHT.
+    /// Publish a message to the network.
     pub async fn send_message(&mut self, message: String) -> Result<(), String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
@@ -334,7 +341,7 @@ impl Network {
         receiver.await.unwrap()
     }
 
-    /// Request the content of the given file from the given peer.
+    /// Request the file with the name `file_name` in the network.
     pub async fn request_file(&mut self, file_name: String) -> Result<Vec<u8>, String> {
         let (sender, receiver) = oneshot::channel();
         self.sender

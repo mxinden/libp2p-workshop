@@ -29,9 +29,6 @@ use crate::{message_proto, Behaviour, BehaviourEvent};
 
 #[derive(Debug)]
 pub enum Command {
-    StartListening {
-        addr: Multiaddr,
-    },
     Dial {
         peer_id: PeerId,
         sender: oneshot::Sender<Result<(), String>>,
@@ -275,9 +272,6 @@ impl EventLoop {
 
     async fn handle_command(&mut self, command: Command) {
         match command {
-            Command::StartListening { addr } => {
-                let _ = self.swarm.listen_on(addr);
-            }
             Command::Dial { peer_id, sender } => {
                 if let hash_map::Entry::Vacant(e) = self.pending_dial.entry(peer_id) {
                     match self.swarm.dial(peer_id) {
