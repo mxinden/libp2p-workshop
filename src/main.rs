@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Set up an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
     let transport = libp2p::development_transport(local_key).await?;
 
+    #[allow(deprecated)]
     let mut swarm = Swarm::new(
         transport,
         ping::Behaviour::new(ping::Config::default().with_keep_alive(true)),
