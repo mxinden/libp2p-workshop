@@ -264,7 +264,8 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
 
 /// Write the `data` to `file_name` in the local directory.
 fn write_to_file(file_name: String, data: Vec<u8>) {
-    let file_name = std::path::Path::new(&file_name).file_name()
+    let file_name = std::path::Path::new(&file_name)
+        .file_name()
         .and_then(|s| s.to_str())
         .map(|s| s.to_owned())
         .unwrap();
@@ -321,11 +322,14 @@ impl Network {
         receiver.await.unwrap()
     }
 
-    /// Start providing a file located at `path`. 
+    /// Start providing a file located at `path`.
     pub async fn start_providing(&mut self, path: String) -> Result<(), String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
-            .send(Command::Provide { file_name: path, sender })
+            .send(Command::Provide {
+                file_name: path,
+                sender,
+            })
             .await
             .unwrap();
         receiver.await.unwrap()
