@@ -2,15 +2,14 @@ mod codec;
 mod event_loop;
 
 use async_std::io;
-
 use clap::Parser;
+use env_logger::Env;
 use futures::{
     channel::{mpsc, oneshot},
     prelude::*,
     select,
     stream::StreamExt,
 };
-
 use libp2p::{
     core, dns,
     gossipsub::{self},
@@ -20,9 +19,9 @@ use libp2p::{
     request_response::{self},
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
+use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
-use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
 
 #[allow(clippy::derive_partial_eq_without_eq)]
 mod message_proto {
@@ -31,7 +30,7 @@ mod message_proto {
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let opts = Opts::parse();
 
     // Configure a new network.
