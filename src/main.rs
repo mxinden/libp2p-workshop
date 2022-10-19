@@ -13,13 +13,10 @@ use futures::{
 use libp2p::{
     core, dns,
     gossipsub::{self},
-    identify, identity,
-    multiaddr::Protocol,
-    noise, relay,
-    request_response,
-    tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
+    identify, identity, noise, relay, request_response, tcp, yamux, Multiaddr, NetworkBehaviour,
+    PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter,time::Duration};
+use std::{error::Error, iter, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
 
@@ -47,10 +44,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     swarm.listen_on(local_address)?;
 
-    // // Dial the bootstrap node.
-    // network.dial(opts.bootstrap_node)?;
-
-    swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
+    // Dial the bootstrap node.
+    swarm.dial(opts.bootstrap_node)?;
 
     // ----------------------------------------
     // Send and receive messages in the network.
