@@ -275,7 +275,7 @@ impl EventLoop {
                         .behaviour_mut()
                         .request_response
                         .add_address(&peer, addr);
-                    if !self.known_peers.insert(peer) {
+                    if self.known_peers.insert(peer) {
                         let _ = self.swarm.dial(peer);
                     }
                 }
