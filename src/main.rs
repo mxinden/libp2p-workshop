@@ -10,10 +10,9 @@ use futures::{
     stream::StreamExt,
 };
 use libp2p::{
-    core, dns, gossipsub, identify, identity, noise, relay, request_response, tcp, yamux,
-    Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
+    core, dns, identify, identity, noise, tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter, time::Duration};
+use std::error::Error;
 
 use event_loop::{Command, Event, EventLoop};
 
@@ -71,28 +70,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Event::Identify { peer, info: identify::Info { agent_version, .. }} => {
                     log::info!("Received Identify Info\nPeer: {}, Agent version {}", peer, agent_version);
                 }
-
-                // Case 4: We learned about a file that another peer is providing.
-                Event::NewProvider { peer, file} => {
-                    log::info!("{:?} is now providing file {:?}", peer, file );
-                }
-
-                // Case 5: A remote peer published a message to the network
-                Event::NewMessage {peer, message_id, message} => {
-                    log::info!(
-                        "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
-                        message_id,
-                        peer,
-                        String::from_utf8_lossy(&message),
-                    );
-                }
             }
         }
     }
 }
 
 // Create a new network node.
-async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
+async fn create_network() -> Result<Swarm<identify::Behaviour>, Box<dyn Error>> {
     // ----------------------------------------
     // # Generate a new identity
     // ----------------------------------------
@@ -122,40 +106,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
         local_public_key.clone(),
     ));
 
-    // Gossipsub Protocol
-    //
-    // Publish-subscribe message protocol.
-    let gossipsub_protocol = {
-        // Set a custom gossipsub
-        let gossipsub_config = gossipsub::GossipsubConfigBuilder::default()
-            .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
-            .validation_mode(gossipsub::ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
-            .build()
-            .expect("Valid config");
-
-        gossipsub::Gossipsub::new(
-            gossipsub::MessageAuthenticity::Signed(local_key.clone()),
-            gossipsub_config,
-        )
-        .unwrap()
-    };
-
-    // Use a relay peer if we can not connect to another peer directly.
-    let (relay_transport, relay_protocol) =
-        relay::v2::client::Client::new_transport_and_behaviour(local_peer_id);
-
-    // Enable direct 1:1 request-response messages.
-    let direct_message_protocol = {
-        let mut config = request_response::RequestResponseConfig::default();
-        config.set_connection_keep_alive(Duration::from_secs(60));
-        config.set_request_timeout(Duration::from_secs(60));
-        request_response::RequestResponse::new(
-            codec::Codec,
-            iter::once((codec::Protocol, request_response::ProtocolSupport::Full)),
-            config,
-        )
-    };
-
     // ----------------------------------------
     // # Create our transport layer
     // ----------------------------------------
@@ -171,24 +121,14 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     // - Noise security: Authenticates peers and encrypts all traffic
     // - Yamux multiplexing: Abstracts a single connection into multiple logical streams
     //   that can be used by different application protocols.
-    let transport = relay_transport
-        .or_transport(dns_tcp_transport)
+    let transport = dns_tcp_transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseAuthenticated::xx(&local_key).unwrap())
         .multiplex(yamux::YamuxConfig::default())
         .timeout(std::time::Duration::from_secs(20))
         .boxed();
 
-    Ok(Swarm::new(
-        transport,
-        Behaviour {
-            identify: identify_protocol,
-            gossipsub: gossipsub_protocol,
-            relay: relay_protocol,
-            request_response: direct_message_protocol,
-        },
-        local_peer_id,
-    ))
+    Ok(Swarm::new(transport, identify_protocol, local_peer_id))
 }
 
 #[derive(Clone)]
@@ -197,7 +137,7 @@ pub struct Network {
 }
 
 impl Network {
-    pub fn new(network: Swarm<Behaviour>) -> (Self, mpsc::UnboundedReceiver<Event>) {
+    pub fn new(network: Swarm<identify::Behaviour>) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
         async_std::task::spawn(EventLoop::new(network, command_rx, event_tx).run());
@@ -213,47 +153,6 @@ impl Network {
             .unwrap();
         receiver.await.unwrap()
     }
-
-    /// Start providing a file located at `path`.
-    pub async fn start_providing(&mut self, path: String) -> Result<(), String> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::Provide {
-                file_name: path,
-                sender,
-            })
-            .await
-            .unwrap();
-        receiver.await.unwrap()
-    }
-
-    /// Publish a message to the network.
-    pub async fn send_message(&mut self, message: String) -> Result<(), String> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::Message { message, sender })
-            .await
-            .unwrap();
-        receiver.await.unwrap()
-    }
-
-    /// Request the file with the name `file_name` in the network.
-    pub async fn request_file(&mut self, file_name: String) -> Result<Vec<u8>, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::Get { file_name, sender })
-            .await
-            .unwrap();
-        receiver.await.unwrap()
-    }
-}
-
-#[derive(NetworkBehaviour)]
-pub struct Behaviour {
-    identify: identify::Behaviour,
-    gossipsub: gossipsub::Gossipsub,
-    relay: relay::v2::client::Client,
-    request_response: request_response::RequestResponse<codec::Codec>,
 }
 
 #[derive(Debug, Parser)]
