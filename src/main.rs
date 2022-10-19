@@ -57,11 +57,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ----------------------------------------
     let chat_topic = gossipsub::IdentTopic::new("chat");
     let addrs_topic = gossipsub::IdentTopic::new("addresses");
-    let files_topic = gossipsub::IdentTopic::new("files");
+
+    let _files_topic = gossipsub::IdentTopic::new("files");
 
     swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
     swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&files_topic)?;
 
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ----------------------------------------
 
     let (mut client, mut events_receiver) =
-        Network::new(swarm, files_topic, chat_topic, addrs_topic);
+        Network::new(swarm, _files_topic, chat_topic, addrs_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
@@ -99,24 +99,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         Ok(()) => {}
                         Err(e) => log::info!("Publish error: {:?}", e),
                     }
-                    "GET" => {
-                        let file_name = arg.to_string();
-                        let data = match client.request_file(file_name.clone()).await {
-                            Ok(data) => data,
-                            Err(err) => {
-                                log::warn!("Error getting file {}", err);
-                                continue
-                            }
-                        };
-                        write_to_file(file_name, data);
-                    }
-                    "PUT" => {
-                        let file_name = arg.to_string();
-                        match client.start_providing(file_name.clone()).await {
-                            Ok(()) => log::info!("Published {:?}", file_name),
-                            Err(e) => log::warn!("Publishing file {} failed {}", file_name, e),
-                        }
-                    }
+                    "GET" => todo!("Get file content from the network and write it to a local file."),
+                    "PUT" => todo!("Publish file to the network."),
                     other => {
                         log::info!("Invalid prefix: Expected MSG|GET|PUT, found {}", other)
                     }
