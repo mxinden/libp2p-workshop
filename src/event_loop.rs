@@ -48,6 +48,7 @@ pub enum Command {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Event {
     ConnectionEstablished {
         endpoint: ConnectedPoint,
@@ -55,7 +56,10 @@ pub enum Event {
     NewListenAddr {
         addr: Multiaddr,
     },
-    Identify(identify::Info),
+    Identify {
+        info: identify::Info,
+        peer: PeerId,
+    },
     NewProvider {
         peer: PeerId,
         file: String,
@@ -151,6 +155,18 @@ impl EventLoop {
 
     async fn handle_event<E: Debug>(&mut self, event: SwarmEvent<BehaviourEvent, E>) {
         match event {
+            SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                peer_id,
+                info,
+            })) => {
+                let _ = self
+                    .event_sender
+                    .send(Event::Identify {
+                        peer: peer_id,
+                        info,
+                    })
+                    .await;
+            }
             SwarmEvent::Behaviour(BehaviourEvent::RequestResponse(
                 RequestResponseEvent::Message { message, .. },
             )) => match message {
