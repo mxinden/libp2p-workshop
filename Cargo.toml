@@ -14,8 +14,7 @@ clap = { version = "4.0", features = ["derive"] }
 env_logger = "0.9.0"
 futures = "0.3"
 futures-timer = "3.0.2"
-# TODO: Consider reducing feature set.
-libp2p = { version = "0.49.0", features = ["full"] }
+libp2p = { version = "0.49.0", features = ["tcp", "dns", "noise", "yamux", "async-std", "relay", "gossipsub", "mdns", "request-response", "identify", "ping"] }
 log = "0.4"
 prost = "0.11"
 unsigned-varint = { version = "0.7", features = ["asynchronous_codec"] }
