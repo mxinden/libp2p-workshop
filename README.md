@@ -155,12 +155,6 @@ files to/from peers in the network.
 This iteration involves a bit of coding on your end. Take a look at
 [`src/main.rs`](./src/main.rs).
 
-```
-$ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
-
-TODO Update output
-```
-
 ## Additional Resources
 
 Below are a couple of resources for those interested in reading more about
