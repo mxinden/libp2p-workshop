@@ -9,16 +9,17 @@ use libp2p::{
     futures::StreamExt,
     gossipsub::{GossipsubEvent, GossipsubMessage, IdentTopic, MessageId},
     identify,
+    mdns::MdnsEvent,
     request_response::RequestId,
     request_response::{RequestResponseEvent, RequestResponseMessage},
     swarm::SwarmEvent,
-    Multiaddr, PeerId, Swarm, mdns::MdnsEvent,
+    Multiaddr, PeerId, Swarm,
 };
 use prost::Message;
 use std::{
     collections::{
         hash_map::{self, Entry},
-        HashMap,
+        HashMap, HashSet,
     },
     fmt::Debug,
     io::Cursor,
@@ -80,6 +81,7 @@ pub struct EventLoop {
     known_files: HashMap<String, PeerId>,
     provided_files: HashMap<String, String>,
     pending_requests: HashMap<RequestId, oneshot::Sender<Result<Vec<u8>, String>>>,
+    known_peers: HashSet<PeerId>,
 }
 
 impl EventLoop {
@@ -102,6 +104,7 @@ impl EventLoop {
             files_topic,
             chat_topic,
             address_topic,
+            known_peers: HashSet::new(),
         }
     }
 
@@ -268,9 +271,14 @@ impl EventLoop {
             }
             SwarmEvent::Behaviour(BehaviourEvent::Mdns(MdnsEvent::Discovered(list))) => {
                 for (peer, addr) in list {
-                    self.swarm.behaviour_mut().request_response.add_address(&peer, addr);
+                    self.swarm
+                        .behaviour_mut()
+                        .request_response
+                        .add_address(&peer, addr);
+                    if !self.known_peers.insert(peer) {
+                        let _ = self.swarm.dial(peer);
+                    }
                 }
-
             }
             event => log::debug!("{:?}", event),
         }

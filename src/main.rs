@@ -14,11 +14,10 @@ use libp2p::{
     core, dns,
     gossipsub::{self},
     identify, identity,
-    multiaddr::Protocol,
-    noise, relay,
     mdns::{Mdns, MdnsConfig},
+    noise, relay,
     request_response::{self},
-    tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
+    tcp, yamux, NetworkBehaviour, PeerId, Swarm, Transport,
 };
 use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
 
@@ -32,7 +31,7 @@ mod message_proto {
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    let opts = Opts::parse();
+    let _opts = Opts::parse();
 
     // Configure a new network.
     let mut swarm = create_network().await?;
@@ -259,7 +258,7 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
             gossipsub: gossipsub_protocol,
             relay: relay_protocol,
             request_response: direct_message_protocol,
-            mdns: mdns_protocol
+            mdns: mdns_protocol,
         },
         local_peer_id,
     ))
@@ -365,7 +364,7 @@ pub struct Behaviour {
     gossipsub: gossipsub::Gossipsub,
     relay: relay::v2::client::Client,
     request_response: request_response::RequestResponse<codec::Codec>,
-    mdns: Mdns
+    mdns: Mdns,
 }
 
 #[derive(Debug, Parser)]
