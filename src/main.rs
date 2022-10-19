@@ -41,12 +41,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // # Joining the network
     // ----------------------------------------
 
-    // // Listen on a new address so that other peers can dial us.
-    // //
-    // // - IP 0.0.0.0 lets us listen on all network interfaces.
-    // // - Port 0 uses a port assigned by the OS.
-    // let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
-    // network.listen_on(local_address)?;
+    // Listen on a new address so that other peers can dial us.
+    //
+    // - IP 0.0.0.0 lets us listen on all network interfaces.
+    // - Port 0 uses a port assigned by the OS.
+    let local_address = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
+    network.listen_on(local_address)?;
 
     // // Dial the bootstrap node.
     // network.dial(opts.bootstrap_node)?;
@@ -64,16 +64,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     network.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
     network.behaviour_mut().gossipsub.subscribe(&files_topic)?;
 
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
-
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
     // and exchanged identify into
     // ----------------------------------------
 
     let (mut client, mut events_receiver) =
-        Client::new(network, files_topic, chat_topic, addrs_topic);
+        Network::new(network, files_topic, chat_topic, addrs_topic);
+
+    // Read full lines from stdin
+    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
 
     loop {
         select! {
@@ -221,10 +221,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     let (relay_transport, relay_protocol) =
         relay::v2::client::Client::new_transport_and_behaviour(local_peer_id);
 
-    let mut config = request_response::RequestResponseConfig::default();
-    config.set_connection_keep_alive(Duration::from_secs(60));
-    config.set_request_timeout(Duration::from_secs(60));
-
     // Enable direct 1:1 request-response messages.
     let direct_message_protocol = {
         let mut config = request_response::RequestResponseConfig::default();
@@ -273,19 +269,19 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
 }
 
 #[derive(Clone)]
-pub struct Client {
-    sender: mpsc::Sender<Command>,
+pub struct Network {
+    sender: mpsc::UnboundedSender<Command>,
 }
 
-impl Client {
+impl Network {
     pub fn new(
         network: Swarm<Behaviour>,
         files_topic: gossipsub::IdentTopic,
         chat_topic: gossipsub::IdentTopic,
         address_topic: gossipsub::IdentTopic,
-    ) -> (Self, mpsc::Receiver<Event>) {
-        let (event_tx, event_rx) = mpsc::channel(10);
-        let (command_tx, command_rx) = mpsc::channel(10);
+    ) -> (Self, mpsc::UnboundedReceiver<Event>) {
+        let (event_tx, event_rx) = mpsc::unbounded();
+        let (command_tx, command_rx) = mpsc::unbounded();
         async_std::task::spawn(
             EventLoop::new(
                 network,
@@ -297,7 +293,7 @@ impl Client {
             )
             .run(),
         );
-        (Client { sender: command_tx }, event_rx)
+        (Network { sender: command_tx }, event_rx)
     }
 
     /// Listen for incoming connections on the given address.

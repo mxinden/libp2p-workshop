@@ -72,8 +72,8 @@ pub enum Event {
 
 pub struct EventLoop {
     swarm: Swarm<Behaviour>,
-    command_receiver: mpsc::Receiver<Command>,
-    event_sender: mpsc::Sender<Event>,
+    command_receiver: mpsc::UnboundedReceiver<Command>,
+    event_sender: mpsc::UnboundedSender<Event>,
     pending_dial: HashMap<PeerId, oneshot::Sender<Result<(), String>>>,
 
     files_topic: IdentTopic,
@@ -88,8 +88,8 @@ pub struct EventLoop {
 impl EventLoop {
     pub fn new(
         swarm: Swarm<Behaviour>,
-        command_receiver: mpsc::Receiver<Command>,
-        event_sender: mpsc::Sender<Event>,
+        command_receiver: mpsc::UnboundedReceiver<Command>,
+        event_sender: mpsc::UnboundedSender<Event>,
         files_topic: IdentTopic,
         chat_topic: IdentTopic,
         address_topic: IdentTopic,
