@@ -1,7 +1,6 @@
 mod codec;
 mod event_loop;
 
-use async_std::io;
 use clap::Parser;
 use env_logger::Env;
 use futures::{
@@ -52,58 +51,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     swarm.listen_on(opts.bootstrap_node.clone().with(Protocol::P2pCircuit))?;
 
     // ----------------------------------------
-    // Send and receive messages in the network.
-    // ----------------------------------------
-    let chat_topic = gossipsub::IdentTopic::new("chat");
-    let addrs_topic = gossipsub::IdentTopic::new("addresses");
-
-    let _files_topic = gossipsub::IdentTopic::new("files");
-
-    swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
-
-    // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut client, mut events_receiver) =
-        Network::new(swarm, _files_topic, chat_topic, addrs_topic);
-
-    // Read full lines from stdin
-    let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
+    let (mut _client, mut events_receiver) = Network::new(swarm);
 
     loop {
         select! {
-            // Parse lines from Stdin
-            line = stdin.select_next_some() => {
-
-                let line = line.expect("Stdin not to close");
-
-                let split= match line.split_once(' ') {
-                    Some(split) => split,
-                    None => {
-                        log::info!("Invalid command format");
-                        continue;
-                    }
-                };
-
-                // The string before the first whitespace
-                let prefix = split.0;
-                // The rest of the string after the whitespace.
-                let arg =  split.1;
-
-                match prefix {
-                    "MSG" => match client.send_message(arg.to_string()).await {
-                        Ok(()) => {}
-                        Err(e) => log::info!("Publish error: {:?}", e),
-                    }
-                    other => {
-                        log::info!("Invalid prefix: Expected 'MSG ', found {}", other)
-                    }
-                }
-            },
-
             // Wait for an event happening on the network.
             // The `match` statement allows to match on the type
             // of event an handle each event differently.
@@ -250,9 +205,6 @@ pub struct Network {
 impl Network {
     pub fn new(
         network: Swarm<Behaviour>,
-        files_topic: gossipsub::IdentTopic,
-        chat_topic: gossipsub::IdentTopic,
-        address_topic: gossipsub::IdentTopic,
     ) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
@@ -261,11 +213,7 @@ impl Network {
                 network,
                 command_rx,
                 event_tx,
-                files_topic,
-                chat_topic,
-                address_topic,
-            )
-            .run(),
+            ).run()
         );
         (Network { sender: command_tx }, event_rx)
     }

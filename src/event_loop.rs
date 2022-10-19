@@ -91,10 +91,8 @@ impl EventLoop {
         swarm: Swarm<Behaviour>,
         command_receiver: mpsc::UnboundedReceiver<Command>,
         event_sender: mpsc::UnboundedSender<Event>,
-        files_topic: IdentTopic,
-        chat_topic: IdentTopic,
-        address_topic: IdentTopic,
     ) -> Self {
+        let dummy_topic = IdentTopic::new("");
         Self {
             swarm,
             command_receiver,
@@ -103,9 +101,9 @@ impl EventLoop {
             known_files: HashMap::new(),
             provided_files: HashMap::new(),
             pending_requests: HashMap::new(),
-            files_topic,
-            chat_topic,
-            address_topic,
+            files_topic: dummy_topic.clone(),
+            chat_topic: dummy_topic.clone(),
+            address_topic: dummy_topic
         }
     }
 
