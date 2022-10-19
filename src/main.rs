@@ -136,8 +136,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
 
                 // Case 3: A remote send us their identify info with the identify protocol.
-                Event::Identify( identify::Info { agent_version, .. }) => {
-                    log::info!("Agent version {}", agent_version);
+                Event::Identify { peer, info: identify::Info { agent_version, .. }} => {
+                    log::info!("Received Identify Info\nPeer: {}, Agent version {}", peer, agent_version);
                 }
 
                 // Case 4: A remote peer published a message to the network
