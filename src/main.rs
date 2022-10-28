@@ -56,11 +56,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Send and receive messages in the network.
     // ----------------------------------------
     let chat_topic = gossipsub::IdentTopic::new("chat");
-    let addrs_topic = gossipsub::IdentTopic::new("addresses");
     let files_topic = gossipsub::IdentTopic::new("files");
 
     swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
     swarm.behaviour_mut().gossipsub.subscribe(&files_topic)?;
 
     // ----------------------------------------
@@ -68,8 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut network, mut events_receiver) =
-        Network::new(swarm, files_topic, chat_topic, addrs_topic);
+    let (mut network, mut events_receiver) = Network::new(swarm, files_topic, chat_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
@@ -142,12 +139,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     log::info!("Agent version {}", agent_version);
                 }
 
-                // Case 4: We learned about a file that another peer is providing.
-                Event::NewProvider { peer, file} => {
-                    log::info!("{:?} is now providing file {:?}", peer, file );
-                }
-
-                // Case 5: A remote peer published a message to the network
+                // Case 4: A remote peer published a message to the network
                 Event::NewMessage {peer, message_id, message} => {
                     log::info!(
                         "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
@@ -156,6 +148,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         String::from_utf8_lossy(&message),
                     );
                 }
+
+                // Case 5: We learned about a file that another peer is providing.
+                Event::NewProvider { peer, file} => {
+                    log::info!("{:?} is now providing file {:?}", peer, file );
+                }
+
             }
         }
     }
@@ -293,20 +291,11 @@ impl Network {
         network: Swarm<Behaviour>,
         files_topic: gossipsub::IdentTopic,
         chat_topic: gossipsub::IdentTopic,
-        address_topic: gossipsub::IdentTopic,
     ) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
         async_std::task::spawn(
-            EventLoop::new(
-                network,
-                command_rx,
-                event_tx,
-                files_topic,
-                chat_topic,
-                address_topic,
-            )
-            .run(),
+            EventLoop::new(network, command_rx, event_tx, files_topic, chat_topic).run(),
         );
         (Network { sender: command_tx }, event_rx)
     }
