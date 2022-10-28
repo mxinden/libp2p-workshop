@@ -79,7 +79,6 @@ pub struct EventLoop {
 
     files_topic: IdentTopic,
     chat_topic: IdentTopic,
-    address_topic: IdentTopic,
 
     known_files: HashMap<String, PeerId>,
     provided_files: HashMap<String, String>,
@@ -93,7 +92,6 @@ impl EventLoop {
         event_sender: mpsc::UnboundedSender<Event>,
         files_topic: IdentTopic,
         chat_topic: IdentTopic,
-        address_topic: IdentTopic,
     ) -> Self {
         Self {
             swarm,
@@ -105,7 +103,6 @@ impl EventLoop {
             pending_requests: HashMap::new(),
             files_topic,
             chat_topic,
-            address_topic,
         }
     }
 
@@ -264,12 +261,6 @@ impl EventLoop {
                             })
                             .await;
                     }
-                } else if topic == self.address_topic.hash() {
-                    let addr = Multiaddr::try_from(data).unwrap();
-                    self.swarm
-                        .behaviour_mut()
-                        .request_response
-                        .add_address(&source, addr)
                 }
             }
             SwarmEvent::ConnectionEstablished {
