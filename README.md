@@ -147,8 +147,19 @@ reaching everyone interested.
 ```
 $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
-[2022-10-19T09:19:13Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWSewMEfybQYFtJecWo1jR71b9U2P87mqeFmMwCTLB37qW")
-[2022-10-19T09:19:14Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+[2022-10-28T19:19:17Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWBGnmJziFWRbmHjXBsnyoZTxjVCv7Pfnbkdne6UjewAzf")
+[2022-10-28T19:19:17Z INFO  libp2p_workshop_node] Listening on /ip4/127.0.0.1/tcp/42431.
+[2022-10-28T19:19:17Z INFO  libp2p_workshop_node] Listening on /ip4/192.168.17.85/tcp/42431.
+[2022-10-28T19:19:18Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+[2022-10-28T19:19:19Z INFO  libp2p_workshop_node] Received Identify Info
+    Peer: 12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K, Agent version github.com/marcopolo/public-ipfs/workshop-server/m/v2@
+
+...
+
+[2022-10-28T19:19:36Z INFO  libp2p_workshop_node] Got message
+        Message Id: 313244334b6f6f5753353142366f5031356f745a67555758656d50796731677648635748654d3771446a56674836544d4273574c36343638393835363239373836303337323135
+        Sender: PeerId("12D3KooWS51B6oP15otZgUWXemPyg1gvHcWHeM7qDjVgH6TMBsWL")
+        Message: "test"
 
 ```
 
