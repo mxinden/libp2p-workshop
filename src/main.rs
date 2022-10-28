@@ -4,7 +4,6 @@ mod event_loop;
 use async_std::io;
 use clap::Parser;
 use env_logger::Env;
-use std::io::Write;
 use futures::{
     channel::{mpsc, oneshot},
     prelude::*,
@@ -20,6 +19,7 @@ use libp2p::{
     request_response::{self},
     tcp, yamux, Multiaddr, NetworkBehaviour, PeerId, Swarm, Transport,
 };
+use std::io::Write;
 use std::{error::Error, iter, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut client, mut events_receiver) =
+    let (mut network, mut events_receiver) =
         Network::new(swarm, _files_topic, chat_topic, addrs_topic);
 
     // Read full lines from stdin
@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let arg =  split.1;
 
                 match prefix {
-                    "MSG" => match client.send_message(arg.to_string()).await {
+                    "MSG" => match network.send_message(arg.to_string()).await {
                         Ok(()) => {}
                         Err(e) => log::info!("Publish error: {:?}", e),
                     }
