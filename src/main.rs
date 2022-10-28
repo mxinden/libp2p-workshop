@@ -1,4 +1,5 @@
 use clap::Parser;
+use env_logger::Env;
 use futures::stream::StreamExt;
 use libp2p::{identity, ping, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
 use std::error::Error;
@@ -12,13 +13,13 @@ struct Opts {
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let opts = Opts::parse();
 
     // Create a random PeerId
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
-    println!("Local peer id: {:?}", local_peer_id);
+    log::info!("Local peer id: {:?}", local_peer_id);
 
     // Set up an encrypted DNS-enabled TCP Transport over the Mplex and Yamux protocols
     let transport = libp2p::development_transport(local_key).await?;
@@ -35,13 +36,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         match swarm.next().await.unwrap() {
             SwarmEvent::ConnectionEstablished { endpoint, .. } => {
-                println!("Connected to {}.", endpoint.get_remote_address());
+                log::info!("Connected to {}.", endpoint.get_remote_address());
             }
             SwarmEvent::Behaviour(ping::Event {
                 peer,
                 result: Ok(ping::Success::Ping { rtt }),
             }) => {
-                println!("Received Pong from {}. RTT {:?}.", peer, rtt);
+                log::info!("Received Pong from {}. RTT {:?}.", peer, rtt);
             }
             e => {
                 log::debug!("{:?}", e)
