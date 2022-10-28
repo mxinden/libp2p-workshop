@@ -59,10 +59,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let chat_topic = gossipsub::IdentTopic::new("chat");
     let addrs_topic = gossipsub::IdentTopic::new("addresses");
 
-    let _files_topic = gossipsub::IdentTopic::new("files");
+    let files_topic = gossipsub::IdentTopic::new("files");
 
     swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
     swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
+
+    todo!("You will only received message about published files if you are subscribed to the 'files' topic.");
 
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
@@ -70,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ----------------------------------------
 
     let (mut network, mut events_receiver) =
-        Network::new(swarm, _files_topic, chat_topic, addrs_topic);
+        Network::new(swarm, files_topic, chat_topic, addrs_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
