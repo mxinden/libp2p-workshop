@@ -19,7 +19,8 @@ use libp2p::{
     request_response::{self},
     tcp, yamux, NetworkBehaviour, PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter, os::unix::prelude::FileExt, time::Duration};
+use std::io::Write;
+use std::{error::Error, iter, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
 
@@ -56,11 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Send and receive messages in the network.
     // ----------------------------------------
     let chat_topic = gossipsub::IdentTopic::new("chat");
-    let addrs_topic = gossipsub::IdentTopic::new("addresses");
     let files_topic = gossipsub::IdentTopic::new("files");
 
     swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
     swarm.behaviour_mut().gossipsub.subscribe(&files_topic)?;
 
     // ----------------------------------------
@@ -68,8 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut client, mut events_receiver) =
-        Network::new(swarm, files_topic, chat_topic, addrs_topic);
+    let (mut network, mut events_receiver) = Network::new(swarm, files_topic, chat_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
@@ -95,13 +93,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let arg =  split.1;
 
                 match prefix {
-                    "MSG" => match client.send_message(arg.to_string()).await {
+                    "MSG" => match network.send_message(arg.to_string()).await {
                         Ok(()) => {}
                         Err(e) => log::info!("Publish error: {:?}", e),
                     }
                     "GET" => {
                         let file_name = arg.to_string();
-                        let data = match client.request_file(file_name.clone()).await {
+                        let data = match network.request_file(file_name.clone()).await {
                             Ok(data) => data,
                             Err(err) => {
                                 log::warn!("Error getting file {}", err);
@@ -112,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     "PUT" => {
                         let file_name = arg.to_string();
-                        match client.start_providing(file_name.clone()).await {
+                        match network.start_providing(file_name.clone()).await {
                             Ok(()) => log::info!("Published {:?}", file_name),
                             Err(e) => log::warn!("Publishing file {} failed {}", file_name, e),
                         }
@@ -128,8 +126,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // of event an handle each event differently.
             event = events_receiver.select_next_some() => match event {
                 // Case 1: We are now actively listening on an address
-                Event::NewListenAddr { addr } => {
-                    log::info!("Listening on {}.", addr);
+                Event::NewListenAddr { address } => {
+                    log::info!("Listening on {}.", address);
                 }
 
                 // Case 2: A connection to another peer was established
@@ -138,16 +136,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
 
                 // Case 3: A remote send us their identify info with the identify protocol.
-                Event::Identify( identify::Info { agent_version, .. }) => {
-                    log::info!("Agent version {}", agent_version);
+                Event::Identify { peer, info: identify::Info { agent_version, .. }} => {
+                    log::info!("Received Identify Info\nPeer: {}, Agent version {}", peer, agent_version);
                 }
 
-                // Case 4: We learned about a file that another peer is providing.
-                Event::NewProvider { peer, file} => {
-                    log::info!("{:?} is now providing file {:?}", peer, file );
-                }
-
-                // Case 5: A remote peer published a message to the network
+                // Case 4: A remote peer published a message to the network
                 Event::NewMessage {peer, message_id, message} => {
                     log::info!(
                         "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
@@ -156,6 +149,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         String::from_utf8_lossy(&message),
                     );
                 }
+
+                // Case 5: We learned about a file that another peer is providing.
+                Event::NewProvider { peer, file} => {
+                    log::info!("{:?} is now providing file {:?}", peer, file );
+                }
+
             }
         }
     }
@@ -271,14 +270,14 @@ fn write_to_file(file_name: String, data: Vec<u8>) {
         .and_then(|s| s.to_str())
         .map(|s| s.to_owned())
         .unwrap();
-    let file = match std::fs::File::create(file_name.clone()) {
+    let mut file = match std::fs::File::create(file_name.clone()) {
         Ok(file) => file,
         Err(err) => {
             log::warn!("Error creating file at {}: {:?}", file_name, err);
             return;
         }
     };
-    match file.write_all_at(&data, 0) {
+    match file.write_all(&data) {
         Ok(()) => log::info!("Downloaded new file: {:?}", file_name),
         Err(err) => {
             log::warn!("Error write to file at {}: {:?}", file_name, err)
@@ -296,20 +295,11 @@ impl Network {
         network: Swarm<Behaviour>,
         files_topic: gossipsub::IdentTopic,
         chat_topic: gossipsub::IdentTopic,
-        address_topic: gossipsub::IdentTopic,
     ) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
         async_std::task::spawn(
-            EventLoop::new(
-                network,
-                command_rx,
-                event_tx,
-                files_topic,
-                chat_topic,
-                address_topic,
-            )
-            .run(),
+            EventLoop::new(network, command_rx, event_tx, files_topic, chat_topic).run(),
         );
         (Network { sender: command_tx }, event_rx)
     }

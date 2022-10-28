@@ -49,14 +49,18 @@ pub enum Command {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Event {
     ConnectionEstablished {
         endpoint: ConnectedPoint,
     },
     NewListenAddr {
-        addr: Multiaddr,
+        address: Multiaddr,
     },
-    Identify(identify::Info),
+    Identify {
+        info: identify::Info,
+        peer: PeerId,
+    },
     NewProvider {
         peer: PeerId,
         file: String,
@@ -76,7 +80,6 @@ pub struct EventLoop {
 
     files_topic: IdentTopic,
     chat_topic: IdentTopic,
-    address_topic: IdentTopic,
 
     known_files: HashMap<String, PeerId>,
     provided_files: HashMap<String, String>,
@@ -91,7 +94,6 @@ impl EventLoop {
         event_sender: mpsc::UnboundedSender<Event>,
         files_topic: IdentTopic,
         chat_topic: IdentTopic,
-        address_topic: IdentTopic,
     ) -> Self {
         Self {
             swarm,
@@ -103,7 +105,6 @@ impl EventLoop {
             pending_requests: HashMap::new(),
             files_topic,
             chat_topic,
-            address_topic,
             known_peers: HashSet::new(),
         }
     }
@@ -154,6 +155,18 @@ impl EventLoop {
 
     async fn handle_event<E: Debug>(&mut self, event: SwarmEvent<BehaviourEvent, E>) {
         match event {
+            SwarmEvent::Behaviour(BehaviourEvent::Identify(identify::Event::Received {
+                peer_id,
+                info,
+            })) => {
+                let _ = self
+                    .event_sender
+                    .send(Event::Identify {
+                        peer: peer_id,
+                        info,
+                    })
+                    .await;
+            }
             SwarmEvent::Behaviour(BehaviourEvent::RequestResponse(
                 RequestResponseEvent::Message { message, .. },
             )) => match message {
@@ -251,12 +264,6 @@ impl EventLoop {
                             })
                             .await;
                     }
-                } else if topic == self.address_topic.hash() {
-                    let addr = Multiaddr::try_from(data).unwrap();
-                    self.swarm
-                        .behaviour_mut()
-                        .request_response
-                        .add_address(&source, addr)
                 }
             }
             SwarmEvent::ConnectionEstablished {
@@ -279,6 +286,12 @@ impl EventLoop {
                         let _ = self.swarm.dial(peer);
                     }
                 }
+            }
+            SwarmEvent::NewListenAddr { address, .. } => {
+                let _ = self
+                    .event_sender
+                    .send(Event::NewListenAddr { address })
+                    .await;
             }
             event => log::debug!("{:?}", event),
         }
