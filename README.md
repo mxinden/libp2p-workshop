@@ -164,7 +164,13 @@ This iteration involves a bit of coding on your end. Take a look at
 ```
 $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
-TODO Update output
+[2022-10-28T19:10:52Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWB6wRBoFmkKfpGneLi5oLC7yYxCWbfKHpaHrkwBWXSnpc")
+[2022-10-28T19:10:52Z INFO  libp2p_workshop_node] Listening on /ip4/127.0.0.1/tcp/37105.
+[2022-10-28T19:10:52Z INFO  libp2p_workshop_node] Listening on /ip4/192.168.17.85/tcp/37105.
+[2022-10-28T19:10:53Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+[2022-10-28T19:10:54Z INFO  libp2p_workshop_node] Listening on /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K/p2p-circuit/p2p/12D3KooWB6wRBoFmkKfpGneLi5oLC7yYxCWbfKHpaHrkwBWXSnpc.
+[2022-10-28T19:10:54Z INFO  libp2p_workshop_node] Received Identify Info
+    Peer: 12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K, Agent version github.com/marcopolo/public-ipfs/workshop-server/m/v2@
 ```
 
 ## Additional Resources
