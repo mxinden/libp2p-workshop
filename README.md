@@ -105,7 +105,7 @@ In case you are still on branch `iteration-1` switch over to branch `iteration-2
 
 ```
 $ git checkout iteration-2
-```
+``` 
 
 Compared to the previous iteration, the only change in this iteration is that we
 are introducing the [identify
@@ -113,14 +113,18 @@ protocol](https://docs.rs/libp2p/latest/libp2p/identify/index.html). It is a
 simple protocol allowing two nodes to exchange basic information like listening
 addresses and supported protocols.
 
-Let's move on to [iteration three](
-https://github.com/mxinden/libp2p-workshop/blob/iteration-3/README.md#iteration-3).
 
 ```
 $ cargo run -- --bootstrap-node /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K
 
-TODO Update output
+[2022-10-19T09:40:37Z INFO  libp2p_workshop_node] Local peer id: PeerId("12D3KooWKNVqDoWEafi8vSVETbxXBBvWuPZRhfCqsRzXq9gc2UjK")
+[2022-10-19T09:40:38Z INFO  libp2p_workshop_node] Connected to /ip4/18.237.216.248/tcp/7654/p2p/12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K.
+[2022-10-19T09:40:39Z INFO  libp2p_workshop_node] Received Identify Info
+    Peer: 12D3KooWSrPEpy6z9gbvxWhCQYTKmZcpkwTUyUDtoF2KzcrC4y5K, Agent version github.com/marcopolo/public-ipfs/workshop-server/m/v2@
 ```
+
+Let's move on to [iteration three](
+https://github.com/mxinden/libp2p-workshop/blob/iteration-3/README.md#iteration-3).
 
 ## Iteration 3
 
