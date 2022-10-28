@@ -22,7 +22,7 @@ pub enum Command {
 #[allow(clippy::large_enum_variant)]
 pub enum Event {
     ConnectionEstablished { endpoint: ConnectedPoint },
-    NewListenAddr { addr: Multiaddr },
+    NewListenAddr { address: Multiaddr },
     Identify { info: identify::Info, peer: PeerId },
 }
 
@@ -75,6 +75,12 @@ impl EventLoop {
                 let _ = self
                     .event_sender
                     .send(Event::ConnectionEstablished { endpoint })
+                    .await;
+            }
+            SwarmEvent::NewListenAddr { address, .. } => {
+                let _ = self
+                    .event_sender
+                    .send(Event::NewListenAddr { address })
                     .await;
             }
             event => log::debug!("{:?}", event),
