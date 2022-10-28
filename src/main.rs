@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut client, mut events_receiver) =
+    let (mut network, mut events_receiver) =
         Network::new(swarm, files_topic, chat_topic, addrs_topic);
 
     // Read full lines from stdin
@@ -95,13 +95,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let arg =  split.1;
 
                 match prefix {
-                    "MSG" => match client.send_message(arg.to_string()).await {
+                    "MSG" => match network.send_message(arg.to_string()).await {
                         Ok(()) => {}
                         Err(e) => log::info!("Publish error: {:?}", e),
                     }
                     "GET" => {
                         let file_name = arg.to_string();
-                        let data = match client.request_file(file_name.clone()).await {
+                        let data = match network.request_file(file_name.clone()).await {
                             Ok(data) => data,
                             Err(err) => {
                                 log::warn!("Error getting file {}", err);
@@ -112,7 +112,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     "PUT" => {
                         let file_name = arg.to_string();
-                        match client.start_providing(file_name.clone()).await {
+                        match network.start_providing(file_name.clone()).await {
                             Ok(()) => log::info!("Published {:?}", file_name),
                             Err(e) => log::warn!("Publishing file {} failed {}", file_name, e),
                         }
