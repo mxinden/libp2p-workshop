@@ -1,4 +1,3 @@
-mod codec;
 mod event_loop;
 
 use async_std::io;
@@ -13,17 +12,12 @@ use futures::{
 use libp2p::{
     core, dns,
     gossipsub::{self},
-    identify, identity, noise, relay, request_response, tcp, yamux, Multiaddr, NetworkBehaviour,
+    identify, identity, noise, relay, tcp, yamux, Multiaddr, NetworkBehaviour,
     PeerId, Swarm, Transport,
 };
-use std::{error::Error, iter, time::Duration};
+use std::{error::Error, time::Duration};
 
 use event_loop::{Command, Event, EventLoop};
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-mod message_proto {
-    include!(concat!(env!("OUT_DIR"), "/workshop.pb.rs"));
-}
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -51,12 +45,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Send and receive messages in the network.
     // ----------------------------------------
     let chat_topic = gossipsub::IdentTopic::new("chat");
-    let addrs_topic = gossipsub::IdentTopic::new("addresses");
-
-    let _files_topic = gossipsub::IdentTopic::new("files");
 
     swarm.behaviour_mut().gossipsub.subscribe(&chat_topic)?;
-    swarm.behaviour_mut().gossipsub.subscribe(&addrs_topic)?;
 
     // ----------------------------------------
     // Run the network until we established a connection to the bootstrap node
@@ -64,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // ----------------------------------------
 
     let (mut network, mut events_receiver) =
-        Network::new(swarm, _files_topic, chat_topic, addrs_topic);
+        Network::new(swarm, chat_topic);
 
     // Read full lines from stdin
     let mut stdin = io::BufReader::new(io::stdin()).lines().fuse();
@@ -119,12 +109,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     log::info!("Received Identify Info\nPeer: {}, Agent version {}", peer, agent_version);
                 }
 
-                // Case 4: We learned about a file that another peer is providing.
-                Event::NewProvider { peer, file} => {
-                    log::info!("{:?} is now providing file {:?}", peer, file );
-                }
-
-                // Case 5: A remote peer published a message to the network
+                // Case 4: A remote peer published a message to the network
                 Event::NewMessage {peer, message_id, message} => {
                     log::info!(
                         "Got message\n\tMessage Id: {}\n\tSender: {:?}\n\tMessage: {:?}",
@@ -191,18 +176,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
     let (relay_transport, relay_protocol) =
         relay::v2::client::Client::new_transport_and_behaviour(local_peer_id);
 
-    // Enable direct 1:1 request-response messages.
-    let direct_message_protocol = {
-        let mut config = request_response::RequestResponseConfig::default();
-        config.set_connection_keep_alive(Duration::from_secs(60));
-        config.set_request_timeout(Duration::from_secs(60));
-        request_response::RequestResponse::new(
-            codec::Codec,
-            iter::once((codec::Protocol, request_response::ProtocolSupport::Full)),
-            config,
-        )
-    };
-
     // ----------------------------------------
     // # Create our transport layer
     // ----------------------------------------
@@ -232,7 +205,6 @@ async fn create_network() -> Result<Swarm<Behaviour>, Box<dyn Error>> {
             identify: identify_protocol,
             gossipsub: gossipsub_protocol,
             relay: relay_protocol,
-            request_response: direct_message_protocol,
         },
         local_peer_id,
     ))
@@ -246,9 +218,7 @@ pub struct Network {
 impl Network {
     pub fn new(
         network: Swarm<Behaviour>,
-        files_topic: gossipsub::IdentTopic,
         chat_topic: gossipsub::IdentTopic,
-        address_topic: gossipsub::IdentTopic,
     ) -> (Self, mpsc::UnboundedReceiver<Event>) {
         let (event_tx, event_rx) = mpsc::unbounded();
         let (command_tx, command_rx) = mpsc::unbounded();
@@ -257,9 +227,7 @@ impl Network {
                 network,
                 command_rx,
                 event_tx,
-                files_topic,
                 chat_topic,
-                address_topic,
             )
             .run(),
         );
@@ -276,34 +244,11 @@ impl Network {
         receiver.await.unwrap()
     }
 
-    /// Start providing a file located at `path`.
-    pub async fn start_providing(&mut self, path: String) -> Result<(), String> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::Provide {
-                file_name: path,
-                sender,
-            })
-            .await
-            .unwrap();
-        receiver.await.unwrap()
-    }
-
     /// Publish a message to the network.
     pub async fn send_message(&mut self, message: String) -> Result<(), String> {
         let (sender, receiver) = oneshot::channel();
         self.sender
             .send(Command::Message { message, sender })
-            .await
-            .unwrap();
-        receiver.await.unwrap()
-    }
-
-    /// Request the file with the name `file_name` in the network.
-    pub async fn request_file(&mut self, file_name: String) -> Result<Vec<u8>, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.sender
-            .send(Command::Get { file_name, sender })
             .await
             .unwrap();
         receiver.await.unwrap()
@@ -315,7 +260,6 @@ pub struct Behaviour {
     identify: identify::Behaviour,
     gossipsub: gossipsub::Gossipsub,
     relay: relay::v2::client::Client,
-    request_response: request_response::RequestResponse<codec::Codec>,
 }
 
 #[derive(Debug, Parser)]
