@@ -53,7 +53,7 @@ pub enum Event {
         endpoint: ConnectedPoint,
     },
     NewListenAddr {
-        addr: Multiaddr,
+        address: Multiaddr,
     },
     Identify(identify::Info),
     NewProvider {
@@ -264,6 +264,12 @@ impl EventLoop {
                 let _ = self
                     .event_sender
                     .send(Event::ConnectionEstablished { endpoint })
+                    .await;
+            }
+            SwarmEvent::NewListenAddr { address, .. } => {
+                let _ = self
+                    .event_sender
+                    .send(Event::NewListenAddr { address })
                     .await;
             }
             event => log::debug!("{:?}", event),

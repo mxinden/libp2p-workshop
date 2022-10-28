@@ -128,8 +128,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // of event an handle each event differently.
             event = events_receiver.select_next_some() => match event {
                 // Case 1: We are now actively listening on an address
-                Event::NewListenAddr { addr } => {
-                    log::info!("Listening on {}.", addr);
+                Event::NewListenAddr { address } => {
+                    log::info!("Listening on {}.", address);
                 }
 
                 // Case 2: A connection to another peer was established
