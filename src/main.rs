@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // and exchanged identify into
     // ----------------------------------------
 
-    let (mut _client, mut events_receiver) = Network::new(swarm);
+    let (mut _network, mut events_receiver) = Network::new(swarm);
 
     loop {
         select! {
